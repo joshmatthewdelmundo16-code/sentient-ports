@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Database files (dev DB; demo seed is re-creatable)
+*.db
+*.sqlite3
+*.sqlite
+
+# Secrets — never commit
+.env
+
+# Storage artifacts
+storage/
+storage_test_tmp/
+
+# Test / coverage artefacts
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+
+# OS
+Thumbs.db
+.DS_Store
