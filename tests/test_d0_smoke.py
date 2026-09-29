@@ -184,10 +184,18 @@ class TestHealthEndpoint:
         data = resp.json()
         assert data["version"] == APP_VERSION
 
-    def test_root_redirect_or_health(self, test_client):
-        """GET / should redirect to /health (TestClient follows redirects by default)."""
-        resp = test_client.get("/")
-        # After following redirect, should land at /health body
-        assert resp.status_code == 200
-        data = resp.json()
-        assert "ok" in data
+    def test_root_redirects_into_the_product(self, test_client):
+        """GET / must redirect, and must not 404.
+
+        D0–D23 sent / to /health, so the first thing anyone opening the server saw was a
+        JSON health blob. D24 sends it to the Start Here page instead, because the
+        landing page is a product surface, not an operations one. What this test protects
+        is that / is a redirect into the application and never a dead end; /health itself
+        is asserted by the tests above.
+        """
+        resp = test_client.get("/", follow_redirects=False)
+        assert resp.status_code in (302, 307, 308)
+        assert resp.headers["location"] == "/ui/start"
+
+        landed = test_client.get("/")
+        assert landed.status_code == 200

@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Start Here — Federated Model Orchestration</title>
+<style>
+:root {
+  --bg: #f8fafc; --surface: #ffffff; --surface2: #f1f5f9; --border: #e2e8f0;
+  --text: #0f172a; --text-secondary: #475569; --text-muted: #94a3b8;
+  --accent: #2563eb; --accent-light: #dbeafe;
+  --success: #16a34a; --success-light: #dcfce7;
+  --error: #dc2626; --error-light: #fee2e2;
+  --warn: #d97706; --warn-light: #fef3c7;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f172a; --surface: #1e293b; --surface2: #334155; --border: #334155;
+    --text: #f1f5f9; --text-secondary: #cbd5e1; --text-muted: #94a3b8;
+    --accent: #60a5fa; --accent-light: #1e3a8a;
+    --success: #4ade80; --success-light: #14532d;
+    --error: #f87171; --error-light: #7f1d1d;
+    --warn: #fbbf24; --warn-light: #78350f;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px; line-height: 1.65;
+}
+header {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 16px 24px; display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap;
+}
+header h1 { font-size: 18px; margin: 0; }
+header a { color: var(--accent); text-decoration: none; font-size: 13px; font-weight: 600; }
+header a:hover { text-decoration: underline; }
+.wrap { max-width: 860px; margin: 0 auto; padding: 28px 18px 72px; }
+.lede { font-size: 17px; color: var(--text-secondary); margin: 0 0 28px; }
+h2 {
+  font-size: 17px; margin: 36px 0 10px; padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+h2:first-of-type { border-top: none; padding-top: 0; margin-top: 8px; }
+h3 { font-size: 14px; margin: 20px 0 6px; }
+p { margin: 0 0 12px; }
+ul, ol { margin: 0 0 12px; padding-left: 22px; }
+li { margin-bottom: 6px; }
+code {
+  font-family: ui-monospace, monospace; font-size: 0.88em;
+  background: var(--surface2); padding: 1px 5px; border-radius: 4px;
+}
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px 20px; margin-bottom: 16px; box-shadow: var(--shadow);
+}
+.steps { counter-reset: step; list-style: none; padding: 0; margin: 0; }
+.steps > li {
+  counter-increment: step; position: relative;
+  padding: 0 0 20px 44px; margin: 0;
+  border-left: 2px solid var(--border); margin-left: 15px;
+}
+.steps > li:last-child { border-left-color: transparent; padding-bottom: 0; }
+.steps > li::before {
+  content: counter(step); position: absolute; left: -16px; top: -2px;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700;
+}
+.steps h3 { margin-top: 0; font-size: 15px; }
+.chain {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  font-size: 12.5px; margin: 0 0 20px;
+}
+.chain span {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
+  padding: 4px 11px; font-weight: 600; color: var(--text-secondary);
+}
+.chain .sep { border: none; background: none; color: var(--text-muted); padding: 0 1px; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-bottom: 12px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { background: var(--surface2); color: var(--text-secondary); font-size: 11px;
+     text-transform: uppercase; letter-spacing: 0.04em; }
+.tag { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.tag.yes { background: var(--success-light); color: var(--success); }
+.tag.part { background: var(--warn-light); color: var(--warn); }
+.tag.no { background: var(--error-light); color: var(--error); }
+.note {
+  background: var(--warn-light); border: 1px solid var(--warn); border-radius: 8px;
+  padding: 12px 16px; font-size: 13.5px; margin-bottom: 16px;
+}
+.cta {
+  display: inline-block; background: var(--accent); color: #fff; text-decoration: none;
+  padding: 10px 20px; border-radius: 8px; font-weight: 700; font-size: 14px;
+  margin-top: 4px;
+}
+.cta.secondary { background: var(--surface); color: var(--accent); border: 1px solid var(--accent); }
+.cta-row { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0 4px; }
+.muted { color: var(--text-muted); font-size: 13px; }
+.kv { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; font-size: 12.5px; }
+.kv span {
+  background: var(--surface2); border-radius: 6px; padding: 4px 10px;
+  font-family: ui-monospace, monospace;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Start Here</h1>
+  <a href="/ui">Decision workspace →</a>
+  <a href="/ui/governance">Governance</a>
+  <a href="/docs">API docs</a>
+  <span class="muted" id="build-line"></span>
+</header>
+
+<div class="wrap">
+
+<p class="lede">
+  This is a <strong>federated decision-support platform</strong> for a port. Several
+  separate models — throughput, berth use, fuel cost, emissions — are linked together so
+  that when one assumption changes, every model that depends on it re-runs automatically,
+  and you can see exactly what moved and why.
+</p>
+
+<div class="chain">
+  <span>Baseline</span><span class="sep">→</span>
+  <span>Excel assumptions</span><span class="sep">→</span>
+  <span>Validate</span><span class="sep">→</span>
+  <span>Commit</span><span class="sep">→</span>
+  <span>Detect change</span><span class="sep">→</span>
+  <span>Propagate</span><span class="sep">→</span>
+  <span>KPI impact</span><span class="sep">→</span>
+  <span>Why</span><span class="sep">→</span>
+  <span>Provenance</span><span class="sep">→</span>
+  <span>Execution</span><span class="sep">→</span>
+  <span>Governance</span>
+</div>
+
+<div class="note">
+  <strong>The numbers here are synthetic.</strong> The port models are simple, clearly
+  labelled arithmetic written to demonstrate the platform — they are not calibrated
+  real-world port figures, and they are not anyone's proprietary modelling. Everything you
+  see was computed by this application from the assumptions it holds.
+</div>
+
+<h2>1 · What this system does</h2>
+<p>
+  Most planning work lives in disconnected spreadsheets and models. Change a fuel price in
+  one place and somebody has to remember to update four other things. This platform makes
+  those links explicit and machine-enforced:
+</p>
+<ul>
+  <li><strong>Models are registered</strong>, each with a declared set of inputs and outputs.</li>
+  <li><strong>Datasets connect them.</strong> One model's output is another's input, and every
+      dataset has a <em>contract</em> — field names, types, units, allowed ranges.</li>
+  <li><strong>Changes cascade.</strong> When a value changes, the platform works out every
+      model downstream of it and re-runs them in dependency order.</li>
+  <li><strong>Everything is recorded.</strong> Each run, each result, and each value's origin
+      is stored, so any number on screen can be traced back to where it came from.</li>
+</ul>
+
+<h2>2 · Baseline and scenario</h2>
+<div class="card">
+  <h3>The baseline is the agreed truth</h3>
+  <p>
+    A <strong>baseline</strong> is a named, executed snapshot of the port as everyone has
+    agreed to describe it — the current assumptions, and the results every model produced
+    from them. The shipped baseline is <em>Golden Port Baseline</em>. It is the thing
+    everything else is compared against.
+  </p>
+  <h3>A scenario is a question about the baseline</h3>
+  <p>
+    A <strong>scenario</strong> asks “what if one thing were different?”. It starts from the
+    baseline and applies one or more <strong>overrides</strong> — a single assumption given a
+    different value. The shipped scenario is <em>Higher Bunker Price</em>, which overrides
+    the in-port bunker price and leaves everything else alone.
+  </p>
+  <p class="muted">
+    Running a scenario never changes the baseline. Scenario results are held separately and
+    are never automatically approved for sharing.
+  </p>
+</div>
+
+<h2>3 · Which assumptions you can change</h2>
+<p>
+  Seven port assumptions drive every model. These are the only values that are set from
+  outside — everything else on screen is <em>computed</em> and cannot be edited directly.
+</p>
+<table>
+  <thead><tr><th>Assumption</th><th>Unit</th><th>What it affects</th></tr></thead>
+  <tbody>
+    <tr><td>bunker_price</td><td>USD/t</td><td>Fuel cost, cost per TEU</td></tr>
+    <tr><td>annual_vessel_calls</td><td>calls/year</td><td>Throughput, berth use, fuel, emissions</td></tr>
+    <tr><td>average_teu_per_call</td><td>TEU/call</td><td>Throughput, and every per-TEU intensity</td></tr>
+    <tr><td>average_berth_hours_per_call</td><td>hours/call</td><td>Berth utilisation, congestion</td></tr>
+    <tr><td>number_of_berths</td><td>berths</td><td>Berth utilisation, congestion</td></tr>
+    <tr><td>fuel_burned_in_port_per_call</td><td>t fuel/call</td><td>Fuel cost and emissions</td></tr>
+    <tr><td>emission_factor</td><td>tCO2/t fuel</td><td>Emissions</td></tr>
+  </tbody>
+</table>
+<p class="muted">
+  A value outside its contract is rejected before anything is written — e.g. a port cannot
+  have zero berths. Rejections are recorded, not silently dropped.
+</p>
+
+<h2>4 · How to change assumptions with Excel</h2>
+<ol class="steps">
+  <li>
+    <h3>Download the workbook</h3>
+    <p>
+      In the workspace, open <strong>Excel Assumptions</strong> and download the
+      <code>.xlsx</code>. It is pre-filled with the values the platform holds right now, so
+      the only difference after you edit it is the change you made.
+    </p>
+  </li>
+  <li>
+    <h3>Edit one number</h3>
+    <p>
+      Change a value in the <strong>Value</strong> column and save as <code>.xlsx</code>.
+      Do not insert or delete rows — the platform reads fixed cell addresses
+      (<code>Assumptions!B2</code> is the bunker price, and so on). The workbook's
+      “How to use” sheet lists the full cell map.
+    </p>
+  </li>
+  <li>
+    <h3>Upload and validate</h3>
+    <p>
+      Choose the file and press <strong>Validate workbook</strong>. This is a <em>dry
+      run</em>: the platform reads every mapped cell, compares it to the current value, and
+      runs the same contract checks the real ingestion runs — but it
+      <strong>writes nothing</strong>, records no ingestion and re-runs no models.
+    </p>
+  </li>
+  <li>
+    <h3>Review what would change</h3>
+    <p>
+      You get a row per mapped cell showing the source cell, the field, its unit, the
+      current value, the value in your workbook, and whether it is valid. Changed rows are
+      highlighted. If something is invalid you are told which cell and why, before anything
+      happens.
+    </p>
+  </li>
+  <li>
+    <h3>Commit the ingestion</h3>
+    <p>
+      Press <strong>Commit ingestion</strong>. Now the values are written. The platform
+      records an ingestion with the workbook's SHA-256 fingerprint and a timestamp, detects
+      which fields actually changed, and raises a change event.
+    </p>
+  </li>
+  <li>
+    <h3>Watch it propagate</h3>
+    <p>
+      The change event triggers every model downstream of the changed dataset, in dependency
+      order, as one graph run. The workspace then shows you the chain that just happened —
+      workbook → ingestion → change → propagation → results.
+    </p>
+  </li>
+</ol>
+
+<h3>What happens on the second upload</h3>
+<p>
+  Upload the same file again and the platform reports <strong>unchanged</strong>: the
+  ingestion is still recorded, but no change event is raised and no model re-runs. Change one
+  number and only that field is listed as changed. Change detection is on the values, not on
+  the file.
+</p>
+
+<h3>What the Excel connector will not do</h3>
+<ul>
+  <li><strong>Formulas are never evaluated.</strong> The connector reads the value Excel
+      cached when the file was last saved. A formula cell that has never been saved by Excel
+      is rejected with a message telling you to re-save it — it is not guessed at.</li>
+  <li><strong>Macros and VBA are never executed.</strong> Workbooks open read-only with macro
+      support disabled.</li>
+  <li><strong>Only the mapped cells are read.</strong> Other sheets, formatting, charts and
+      extra rows are ignored entirely.</li>
+  <li><strong>Your file is never modified and never stored.</strong> Only its hash and the
+      mapped values are kept.</li>
+  <li>Only <code>.xlsx</code> is accepted — not <code>.xls</code>, <code>.xlsm</code> or
+      <code>.csv</code> — up to 5 MB.</li>
+</ul>
+
+<h2>5 · Where the results appear, and why they moved</h2>
+<ul>
+  <li><strong>Decision Overview</strong> — the headline KPIs, baseline against scenario.</li>
+  <li><strong>Comparison</strong> — every metric with its baseline value, scenario value,
+      absolute change and percentage change.</li>
+  <li><strong>Impact &amp; Why</strong> — the chain of reasoning: which assumption changed,
+      which model consumed it, what that model produced, and which KPI it landed in. This is
+      the answer to “why did this number move?”.</li>
+  <li><strong>Sources &amp; Provenance</strong> — where each value came from: which workbook,
+      which fingerprint, which ingestion, which change event.</li>
+  <li><strong>Execution</strong> — the actual runs: which models executed, in what order,
+      how long they took, and whether any step failed.</li>
+  <li><strong><a href="/ui/governance">Governance</a></strong> — who the federation
+      participants are, what each has approved for external exposure, and which fields are
+      therefore visible outside. Approved does not mean visible: an approval held by an
+      inactive participant, or a revoked one, is excluded.</li>
+</ul>
+
+<h2>6 · What this project actually implements</h2>
+<p>
+  This project is built as an open replication of the <em>kind</em> of capability the
+  Sentient Ports / Sentient Hubs material describes publicly. It is an independent
+  implementation: no proprietary code, private algorithms, branding or undocumented
+  internals were used. Being straight about the gap matters more than the claim:
+</p>
+<table>
+  <thead><tr><th>Capability</th><th>Status here</th><th>What that means</th></tr></thead>
+  <tbody>
+    <tr><td>Linking models into one governed solution</td><td><span class="tag yes">Implemented</span></td>
+        <td>Registry, contracts, dependency graph, orchestrated runs.</td></tr>
+    <tr><td>Cascading impact across models</td><td><span class="tag yes">Implemented</span></td>
+        <td>Change events propagate in dependency order.</td></tr>
+    <tr><td>Scenario modelling</td><td><span class="tag yes">Implemented</span></td>
+        <td>Baselines, overrides, isolated scenario runs, comparison.</td></tr>
+    <tr><td>Excel as a data source</td><td><span class="tag yes">Implemented</span></td>
+        <td>Template, dry-run validation, commit, provenance, propagation.</td></tr>
+    <tr><td>Provenance and lineage</td><td><span class="tag yes">Implemented</span></td>
+        <td>Every result traces to its inputs and to its source workbook.</td></tr>
+    <tr><td>Data-sharing governance</td><td><span class="tag part">Synthetic</span></td>
+        <td>The approval and exposure model is real and enforced; the participants and
+            agreements shipped with it are synthetic demo records, not real agreements.</td></tr>
+    <tr><td>Cross-domain impacts</td><td><span class="tag part">Partial</span></td>
+        <td>Operational, economic and environmental domains only. No natural or social
+            domain models.</td></tr>
+    <tr><td>Port domain logic</td><td><span class="tag part">Illustrative</span></td>
+        <td>Deliberately simple arithmetic, not calibrated port modelling.</td></tr>
+    <tr><td>Other data connectors</td><td><span class="tag no">Not implemented</span></td>
+        <td>Excel is the only connector. No database, API or sensor connectors.</td></tr>
+    <tr><td>Live sensor feeds / real-time view</td><td><span class="tag no">Not implemented</span></td>
+        <td>There is no telemetry ingestion. Nothing here is live data.</td></tr>
+    <tr><td>Operational optimization</td><td><span class="tag no">Not implemented</span></td>
+        <td>No optimiser or solver exists. The platform evaluates the assumptions you give
+            it; it does not search for better ones.</td></tr>
+    <tr><td>Dynamic master planning</td><td><span class="tag no">Not implemented</span></td>
+        <td>Scenarios are single-point. There is no multi-horizon time-phased planning.</td></tr>
+  </tbody>
+</table>
+
+<h2>7 · Running this as a shared service</h2>
+<p id="deploy-line">
+  By default this runs on one machine with a local SQLite file, which is fine for trying it
+  out but means nobody else can reach it and the data lives on that laptop.
+</p>
+<p>
+  The repository ships a container image and a PostgreSQL configuration so it can run as a
+  shared service that survives a laptop being closed. The exact steps — including the one
+  manual step that needs a hosting account — are in <code>DEPLOYMENT.md</code>.
+</p>
+<div class="kv" id="runtime-facts"></div>
+
+<div class="cta-row">
+  <a class="cta" href="/ui">Open the decision workspace →</a>
+  <a class="cta secondary" href="/ui#excel-section">Go straight to the Excel workflow</a>
+  <a class="cta secondary" href="/ui/governance">See governance</a>
+</div>
+
+</div>
+
+<script>
+const esc = (s) => (s == null ? "" : String(s).replace(/[&<>"]/g,
+  c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])));
+
+(async function () {
+  let info;
+  try {
+    const res = await fetch("/api/build-info");
+    if (!res.ok) throw new Error(String(res.status));
+    info = await res.json();
+  } catch {
+    document.getElementById("build-line").textContent =
+      "This server predates D24 — restart it from the current checkout.";
+    return;
+  }
+
+  document.getElementById("build-line").textContent =
+    info.version + " · " + info.environment;
+
+  // Report what this deployment actually is, rather than assuming.
+  const shared = info.database === "postgresql";
+  document.getElementById("runtime-facts").innerHTML = [
+    "database: " + info.database,
+    "environment: " + info.environment,
+    "demo data: " + (info.demo_seed_enabled ? "seeded" : "not seeded"),
+    "public URL: " + (info.public_base_url || "not configured"),
+  ].map(t => "<span>" + esc(t) + "</span>").join("");
+
+  if (shared) {
+    document.getElementById("deploy-line").innerHTML =
+      "This instance is running against <strong>PostgreSQL</strong>, so its data is shared " +
+      "rather than tied to one laptop." +
+      (info.public_base_url
+        ? " It is reachable at <code>" + esc(info.public_base_url) + "</code>."
+        : " No public URL has been configured for it yet.");
+  }
+})();
+</script>
+</body>
+</html>

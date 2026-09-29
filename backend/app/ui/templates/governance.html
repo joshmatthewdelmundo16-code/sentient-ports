@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Federation Governance</title>
+<style>
+:root {
+  --bg: #f8fafc; --surface: #ffffff; --surface2: #f1f5f9; --border: #e2e8f0;
+  --text: #0f172a; --text-secondary: #475569; --text-muted: #94a3b8;
+  --accent: #2563eb; --success: #16a34a; --success-light: #dcfce7;
+  --error: #dc2626; --error-light: #fee2e2; --warn: #d97706; --warn-light: #fef3c7;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f172a; --surface: #1e293b; --surface2: #334155; --border: #334155;
+    --text: #f1f5f9; --text-secondary: #cbd5e1; --text-muted: #94a3b8;
+    --accent: #60a5fa; --success: #4ade80; --success-light: #14532d;
+    --error: #f87171; --error-light: #7f1d1d; --warn: #fbbf24; --warn-light: #78350f;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px; line-height: 1.5;
+}
+header {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 16px 24px; display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+}
+header h1 { font-size: 18px; margin: 0; }
+header a { color: var(--accent); text-decoration: none; font-size: 13px; }
+.wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+.sub { color: var(--text-muted); font-size: 13px; margin: 4px 0 0; }
+.cards { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 18px; box-shadow: var(--shadow); min-width: 130px;
+}
+.card .n { font-size: 24px; font-weight: 600; }
+.card .l { color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+section { margin-bottom: 32px; }
+section h2 { font-size: 15px; margin: 0 0 10px; }
+table { width: 100%; border-collapse: collapse; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+th { background: var(--surface2); color: var(--text-secondary); font-weight: 600;
+  text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }
+tr:last-child td { border-bottom: none; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+.badge.active { background: var(--success-light); color: var(--success); }
+.badge.inactive, .badge.revoked { background: var(--error-light); color: var(--error); }
+.badge.expired { background: var(--warn-light); color: var(--warn); }
+code { font-family: ui-monospace, monospace; font-size: 12px; color: var(--text-secondary); }
+.empty { color: var(--text-muted); padding: 16px; text-align: center; font-style: italic; }
+.note { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 14px; font-size: 12px; color: var(--text-secondary); margin-bottom: 20px; }
+.warn-note { background: var(--warn-light); border: 1px solid var(--warn); border-radius: 8px;
+  padding: 10px 14px; font-size: 12.5px; color: var(--warn); margin-bottom: 16px; }
+.warn-note strong { display: block; margin-bottom: 3px; }
+.stale { background: var(--error-light); color: var(--error); border: 1px solid var(--error);
+  border-radius: 8px; padding: 10px 14px; font-size: 12.5px; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Federation Governance</h1>
+  <a href="/ui/start">&#9737; Start Here</a>
+  <a href="/ui">&larr; Decision workspace</a>
+  <a href="/docs">API docs</a>
+</header>
+<div class="wrap">
+  <p class="sub">Participants are federation actors (not users). Approved outputs are governance
+    metadata describing what a participant approved for external exposure. Read-only view.</p>
+
+  <div class="warn-note" id="synthetic-note" hidden>
+    <strong>These are synthetic demo records.</strong> The participants and approvals below
+    were created by this application's demo seed to make the governance model visible. They
+    are not real Data Collaboration Agreements and are not evidence that any real
+    organisation approved anything.
+  </div>
+
+  <div class="note">
+    The <strong>Exposed Outputs</strong> table is the safe output boundary: it shows only
+    approved, non-expired fields of active participants — never whole datasets, and never
+    scenario outputs (which are never auto-approved).
+    <br><br>
+    That is why the three tables do not agree, and the disagreement is the point: an
+    approval held by an <em>inactive</em> participant, and a <em>revoked</em> approval, both
+    appear under Approved Outputs but are deliberately absent from Exposed Outputs.
+  </div>
+
+  <div class="cards" id="summary"></div>
+
+  <section>
+    <h2>Participants</h2>
+    <table id="participants"><thead><tr>
+      <th>Key</th><th>Name</th><th>Status</th><th>Description</th>
+    </tr></thead><tbody></tbody></table>
+  </section>
+
+  <section>
+    <h2>Approved Outputs</h2>
+    <table id="approvals"><thead><tr>
+      <th>Participant</th><th>Dataset</th><th>Field</th><th>Purpose</th>
+      <th>Status</th><th>Approved</th><th>Expires</th>
+    </tr></thead><tbody></tbody></table>
+  </section>
+
+  <section>
+    <h2>Exposed Outputs <span class="sub">(approved, effective)</span></h2>
+    <table id="exposed"><thead><tr>
+      <th>Participant</th><th>Dataset</th><th>Field</th><th>Value</th><th>Purpose</th>
+    </tr></thead><tbody></tbody></table>
+  </section>
+</div>
+
+<script>
+const esc = (s) => (s == null ? "" : String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])));
+const fmt = (d) => d ? new Date(d).toLocaleString() : "—";
+const isExpired = (d) => d && new Date(d) <= new Date();
+
+async function getJSON(url) { const r = await fetch(url); return r.ok ? r.json() : []; }
+
+function fillEmpty(tableId, cols, msg) {
+  const tb = document.querySelector(`#${tableId} tbody`);
+  tb.innerHTML = `<tr><td class="empty" colspan="${cols}">${msg}</td></tr>`;
+}
+
+/* If this page itself was reached, the route exists — but the API it calls could still
+   belong to an older build. Say so rather than rendering five empty tables. */
+async function checkBuild() {
+  let info = null;
+  try {
+    const r = await fetch("/api/build-info");
+    if (r.ok) info = await r.json();
+  } catch {}
+  const need = ["governance.summary", "governance.exposed_outputs"];
+  const missing = info
+    ? need.filter(c => info.capabilities && info.capabilities[c] === false)
+    : need;
+  if (!missing.length) return;
+  const el = document.createElement("div");
+  el.className = "stale";
+  el.innerHTML =
+    "<strong>This server is running an older build.</strong> It does not serve: <code>" +
+    missing.join("</code> <code>") + "</code>. Stop every running server process and start " +
+    "one from the current checkout (<code>python scripts/serve.py</code>). The tables below " +
+    "will be empty until then.";
+  document.querySelector(".wrap").prepend(el);
+}
+
+async function load() {
+  await checkBuild();
+  // Summary
+  const s = await getJSON("/api/governance/summary");
+  const cards = [
+    ["Participants", s.participants], ["Active", s.active_participants],
+    ["Approvals", s.approvals], ["Effective", s.effective_approvals],
+    ["Revoked", s.revoked_approvals],
+  ];
+  document.getElementById("summary").innerHTML = cards.map(
+    ([l, n]) => `<div class="card"><div class="n">${n ?? 0}</div><div class="l">${l}</div></div>`
+  ).join("");
+
+  // Participants
+  const ps = await getJSON("/api/participants");
+  const pById = Object.fromEntries(ps.map(p => [p.id, p]));
+
+  // Show the synthetic-data warning only when the records actually say they are
+  // synthetic, so a real deployment with real participants is not mislabelled.
+  const note = document.getElementById("synthetic-note");
+  if (note && ps.some(p => p.metadata && p.metadata.synthetic)) note.hidden = false;
+  const ptb = document.querySelector("#participants tbody");
+  ptb.innerHTML = ps.length ? ps.map(p => `<tr>
+      <td><code>${esc(p.participant_key)}</code></td><td>${esc(p.name)}</td>
+      <td><span class="badge ${p.status}">${esc(p.status)}</span></td>
+      <td>${esc(p.description)}</td></tr>`).join("")
+    : "";
+  if (!ps.length) fillEmpty("participants", 4, "No participants registered.");
+
+  // Approvals
+  const as = await getJSON("/api/approved-outputs");
+  const atb = document.querySelector("#approvals tbody");
+  atb.innerHTML = as.length ? as.map(a => {
+    const pk = pById[a.participant_id] ? pById[a.participant_id].participant_key : a.participant_id;
+    const expired = a.status === "active" && isExpired(a.expires_at);
+    const badge = a.status === "revoked" ? "revoked" : (expired ? "expired" : "active");
+    const label = a.status === "revoked" ? "revoked" : (expired ? "expired" : "active");
+    return `<tr><td><code>${esc(pk)}</code></td><td><code>${esc(a.dataset_id)}</code></td>
+      <td>${esc(a.field_name)}</td><td>${esc(a.purpose)}</td>
+      <td><span class="badge ${badge}">${label}</span></td>
+      <td>${fmt(a.approved_at)}</td><td>${a.expires_at ? fmt(a.expires_at) : "never"}</td></tr>`;
+  }).join("") : "";
+  if (!as.length) fillEmpty("approvals", 7, "No approved outputs.");
+
+  // Exposed
+  const ex = await getJSON("/api/exposed-outputs");
+  const etb = document.querySelector("#exposed tbody");
+  etb.innerHTML = ex.length ? ex.map(e => `<tr>
+      <td><code>${esc(e.participant_key)}</code></td><td>${esc(e.dataset_name)}</td>
+      <td>${esc(e.field_name)}</td>
+      <td>${e.value_present ? esc(JSON.stringify(e.value)) : '<span class="badge expired">unset</span>'}</td>
+      <td>${esc(e.purpose)}</td></tr>`).join("") : "";
+  if (!ex.length) fillEmpty("exposed", 5, "No fields are currently exposed.");
+}
+load();
+</script>
+</body>
+</html>

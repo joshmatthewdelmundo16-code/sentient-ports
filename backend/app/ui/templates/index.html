@@ -1,0 +1,2355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Federated Model Orchestration</title>
+<style>
+:root {
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface2: #f1f5f9;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --accent: #2563eb;
+  --accent-light: #dbeafe;
+  --accent-hover: #1d4ed8;
+  --accent-text: #ffffff;
+  --success: #16a34a;
+  --success-light: #dcfce7;
+  --error: #dc2626;
+  --error-light: #fee2e2;
+  --warn: #d97706;
+  --warn-light: #fef3c7;
+  --changed: #ea580c;
+  --changed-light: #fff7ed;
+  --affected: #d97706;
+  --affected-light: #fffbeb;
+  --node-border: #93c5fd;
+  --node-bg: #eff6ff;
+  --arrow: #94a3b8;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface2: #162032;
+    --border: #334155;
+    --border-strong: #475569;
+    --text: #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --text-muted: #64748b;
+    --accent: #3b82f6;
+    --accent-light: #1e3a5f;
+    --accent-hover: #60a5fa;
+    --accent-text: #0f172a;
+    --success: #4ade80;
+    --success-light: #14532d;
+    --error: #f87171;
+    --error-light: #450a0a;
+    --warn: #fbbf24;
+    --warn-light: #451a03;
+    --changed: #fb923c;
+    --changed-light: #431407;
+    --affected: #fbbf24;
+    --affected-light: #451a03;
+    --node-border: #3b82f6;
+    --node-bg: #1e3a5f;
+    --arrow: #475569;
+    --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --surface2: #162032;
+  --border: #334155;
+  --border-strong: #475569;
+  --text: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #64748b;
+  --accent: #3b82f6;
+  --accent-light: #1e3a5f;
+  --accent-hover: #60a5fa;
+  --accent-text: #0f172a;
+  --success: #4ade80;
+  --success-light: #14532d;
+  --error: #f87171;
+  --error-light: #450a0a;
+  --warn: #fbbf24;
+  --warn-light: #451a03;
+  --changed: #fb923c;
+  --changed-light: #431407;
+  --affected: #fbbf24;
+  --affected-light: #451a03;
+  --node-border: #3b82f6;
+  --node-bg: #1e3a5f;
+  --arrow: #475569;
+  --shadow: 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ── Header ──────────────────────────────────────────────── */
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  box-shadow: var(--shadow);
+}
+header h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+.header-stats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.header-stat { white-space: nowrap; }
+
+/* ── Layout ──────────────────────────────────────────────── */
+main {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+.section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+.section-head h2 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+.section-sub { font-size: 13px; color: var(--text-muted); margin: 0; }
+
+/* ── Badges ──────────────────────────────────────────────── */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 10px; border-radius: 9999px;
+  font-size: 11px; font-weight: 600; white-space: nowrap;
+}
+.badge-ok      { background: var(--success-light); color: var(--success); }
+.badge-err     { background: var(--error-light);   color: var(--error); }
+.badge-warn    { background: var(--warn-light);    color: var(--warn); }
+.badge-info    { background: var(--accent-light);  color: var(--accent); }
+.badge-changed { background: var(--changed-light); color: var(--changed); }
+
+.status-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; font-weight: 600;
+}
+.status-succeeded, .status-active { background: var(--success-light); color: var(--success); }
+.status-failed    { background: var(--error-light);   color: var(--error); }
+.status-running, .status-requested { background: var(--accent-light); color: var(--accent); }
+.status-partial, .status-draft     { background: var(--warn-light);   color: var(--warn); }
+.status-inactive  { background: var(--surface2);      color: var(--text-muted); }
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: none; border-radius: 8px; cursor: pointer;
+  font-size: 13px; font-weight: 600; padding: 9px 18px;
+  transition: background 0.15s, opacity 0.15s, transform 0.1s;
+  white-space: nowrap;
+}
+.btn:active:not(:disabled) { transform: scale(0.98); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary { background: var(--accent); color: var(--accent-text); }
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+.btn-warn { background: var(--warn); color: #fff; }
+.btn-warn:hover:not(:disabled) { background: #b45309; }
+.btn-ghost {
+  background: transparent; color: var(--accent); border: 1px solid var(--border);
+}
+.btn-ghost:hover:not(:disabled) { background: var(--surface2); }
+.btn-link {
+  background: none; border: none; color: var(--accent); cursor: pointer;
+  font-size: 12px; padding: 0; text-decoration: underline;
+  font-family: inherit;
+}
+.btn-link:hover { color: var(--accent-hover); }
+
+/* ── Forms ────────────────────────────────────────────────── */
+.form-field { display: flex; flex-direction: column; gap: 4px; }
+.form-field label { font-size: 12px; font-weight: 600; color: var(--text-secondary); letter-spacing: 0.02em; }
+.form-field input {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 15px;
+  padding: 8px 14px; width: 140px; font-variant-numeric: tabular-nums;
+  transition: border-color 0.15s;
+}
+.form-field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+
+/* ── Alerts ───────────────────────────────────────────────── */
+.alert {
+  border-radius: 8px; font-size: 13px; padding: 10px 14px;
+  border-left: 3px solid;
+}
+.alert-error   { background: var(--error-light);   color: var(--error);   border-color: var(--error); }
+.alert-success { background: var(--success-light); color: var(--success); border-color: var(--success); }
+.alert-info    { background: var(--accent-light);  color: var(--accent);  border-color: var(--accent); }
+
+/* ── Graph ────────────────────────────────────────────────── */
+.graph-container {
+  display: flex; align-items: center; justify-content: center;
+  gap: 0; padding: 20px 0; overflow-x: auto;
+}
+.graph-node {
+  flex-shrink: 0; min-width: 150px; max-width: 210px;
+  background: var(--node-bg); border: 2px solid var(--node-border);
+  border-radius: 12px; padding: 16px 20px; text-align: center;
+  cursor: pointer; transition: all 0.2s ease; position: relative;
+  user-select: none;
+}
+.graph-node:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.graph-node:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.graph-node.selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.2); }
+.graph-node.succeeded { border-color: var(--success); background: var(--success-light); }
+.graph-node.running { border-color: var(--accent); }
+.graph-node.affected { border-color: var(--affected); background: var(--affected-light); animation: pulse-affected 2s ease-in-out 3; }
+.graph-node.changed  { border-color: var(--changed);  background: var(--changed-light); }
+@keyframes pulse-affected {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(217,119,6,0.3); }
+  50%      { box-shadow: 0 0 0 8px rgba(217,119,6,0); }
+}
+.node-name  { font-weight: 700; font-size: 14px; line-height: 1.3; }
+.node-value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--accent); margin-top: 4px; line-height: 1.2; }
+.node-value:empty, .node-value:only-child { display: none; }
+.node-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 6px; }
+.graph-edge { flex-shrink: 0; color: var(--arrow); display: flex; align-items: center; padding: 0 2px; }
+
+/* ── Model detail ─────────────────────────────────────────── */
+.detail-panel {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 20px 24px; box-shadow: var(--shadow);
+}
+.detail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.detail-head h3 { margin: 0; font-size: 16px; font-weight: 700; }
+.btn-close {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; cursor: pointer; font-size: 18px; line-height: 1;
+  padding: 4px 10px; color: var(--text-muted); transition: background 0.15s;
+}
+.btn-close:hover { background: var(--border); }
+.detail-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+.detail-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 2px; }
+.detail-val   { font-size: 14px; font-weight: 500; }
+.detail-meta  { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+.mono { font-family: "SF Mono", Consolas, monospace; font-size: 11px; color: var(--text-muted); }
+
+/* ── Dual panel ───────────────────────────────────────────── */
+.dual-panel {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+}
+@media (max-width: 700px) { .dual-panel { grid-template-columns: 1fr; } }
+
+.panel-title {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--text-muted); margin: 0 0 16px;
+}
+.action-block { margin-bottom: 20px; }
+.action-block:last-child { margin-bottom: 0; }
+.action-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px; }
+.form-inline { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+/* ── Impact ───────────────────────────────────────────────── */
+.impact-status {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14px; font-weight: 600; margin-bottom: 16px;
+  padding: 10px 14px; border-radius: 8px;
+}
+.impact-status.success { background: var(--success-light); color: var(--success); }
+.impact-status.error   { background: var(--error-light);   color: var(--error); }
+.impact-change {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; background: var(--changed-light);
+  border-radius: 8px; margin-bottom: 16px; font-size: 14px;
+}
+.impact-change-label { font-weight: 600; color: var(--changed); }
+.impact-change-values { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--text); }
+.impact-stats { display: flex; gap: 20px; flex-wrap: wrap; }
+.impact-stat-value { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent); }
+.impact-stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+.placeholder { color: var(--text-muted); font-size: 13px; margin: 0; }
+.loader { color: var(--text-muted); font-size: 13px; }
+
+/* ── Results ──────────────────────────────────────────────── */
+.results-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+.result-card {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px; transition: border-color 0.3s;
+}
+.result-card.affected { border-color: var(--affected); }
+.result-name  { font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+.result-value { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent); line-height: 1.1; }
+.result-prev  { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+.result-delta {
+  display: inline-block; font-size: 13px; font-weight: 700;
+  font-variant-numeric: tabular-nums; margin-top: 4px;
+  padding: 1px 8px; border-radius: 4px;
+}
+.delta-up   { background: var(--error-light); color: var(--error); }
+.delta-down { background: var(--success-light); color: var(--success); }
+.result-meta { margin-top: 8px; }
+
+/* ── Lineage ──────────────────────────────────────────────── */
+.lineage-chain {
+  display: flex; align-items: center; gap: 0;
+  padding: 12px 0; overflow-x: auto; flex-wrap: nowrap;
+}
+.lineage-node {
+  flex-shrink: 0; padding: 10px 18px; border-radius: 8px;
+  text-align: center; border: 2px solid var(--border);
+  background: var(--surface2);
+}
+.lineage-node.changed  { border-color: var(--changed); background: var(--changed-light); }
+.lineage-node.affected { border-color: var(--affected); background: var(--affected-light); }
+.lineage-node-name { font-weight: 700; font-size: 13px; }
+.lineage-node-role { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-top: 2px; }
+.lineage-node.changed .lineage-node-role  { color: var(--changed); }
+.lineage-node.affected .lineage-node-role { color: var(--affected); }
+.lineage-arrow { flex-shrink: 0; color: var(--arrow); font-size: 20px; padding: 0 8px; font-weight: 300; }
+
+.lineage-detail-card {
+  margin-top: 16px; padding: 16px; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: 8px;
+}
+.lineage-detail-card h4 { margin: 0 0 12px; font-size: 13px; font-weight: 700; color: var(--text-secondary); }
+.lineage-edge-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 0; font-size: 12px;
+}
+.lineage-edge-arrow { color: var(--arrow); }
+
+/* ── History ──────────────────────────────────────────────── */
+.section-toggle { cursor: pointer; user-select: none; }
+.section-toggle:hover h2 { color: var(--accent); }
+.toggle-icon { font-size: 14px; color: var(--text-muted); transition: transform 0.2s; }
+.history-list { display: flex; flex-direction: column; gap: 1px; }
+.history-item {
+  display: grid; grid-template-columns: 1fr auto auto auto;
+  gap: 16px; align-items: center; padding: 10px 0;
+  border-bottom: 1px solid var(--border); font-size: 13px;
+}
+.history-item:last-child { border-bottom: none; }
+.history-time { color: var(--text-secondary); }
+.history-trigger { color: var(--text-muted); font-size: 12px; }
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 600px) {
+  header { padding: 0 16px; }
+  main { padding: 16px 12px 48px; gap: 16px; }
+  .section { padding: 16px; }
+  .graph-container { justify-content: flex-start; }
+  .results-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+  .lineage-chain { flex-direction: column; align-items: stretch; }
+  .lineage-arrow { transform: rotate(90deg); text-align: center; padding: 4px 0; }
+  .history-item { grid-template-columns: 1fr auto; gap: 8px; }
+  .history-trigger, .history-id { display: none; }
+}
+
+/* ══ Decision workspace (D20) ═══════════════════════════════════ */
+.decision-hero { border-top: 3px solid var(--accent); }
+.decision-selectors { display: flex; gap: 16px; flex-wrap: wrap; }
+.decision-selectors select {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); font-size: 14px; padding: 8px 12px; min-width: 200px;
+  font-family: inherit;
+}
+.decision-selectors select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+.vs-label {
+  display: inline-flex; align-items: center; gap: 8px; font-size: 13px;
+  color: var(--text-secondary); font-weight: 600;
+}
+.vs-pill { padding: 2px 10px; border-radius: 9999px; font-weight: 700; }
+.vs-pill.base { background: var(--surface2); color: var(--text-secondary); }
+.vs-pill.scen { background: var(--accent-light); color: var(--accent); }
+
+.assumption-summary { display: flex; flex-wrap: wrap; gap: 10px; margin: 4px 0 20px; }
+.assumption-chip {
+  display: inline-flex; align-items: baseline; gap: 8px; padding: 8px 14px;
+  background: var(--changed-light); border: 1px solid var(--changed); border-radius: 10px;
+  font-size: 13px;
+}
+.assumption-chip .a-field { font-weight: 700; color: var(--changed); }
+.assumption-chip .a-vals { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--text); }
+.assumption-chip .a-unit { color: var(--text-muted); font-size: 12px; }
+.assumption-chip.none { background: var(--surface2); border-color: var(--border); }
+.assumption-chip.none .a-field { color: var(--text-secondary); }
+
+/* KPI cards */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
+.kpi-card {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 12px;
+  padding: 16px 18px; position: relative;
+}
+.kpi-card.changed { border-color: var(--changed); }
+.kpi-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.kpi-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); }
+.kpi-scenario { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--text); line-height: 1.15; }
+.kpi-unit { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-left: 4px; }
+.kpi-baseline { font-size: 12px; color: var(--text-muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.kpi-delta { display: inline-flex; align-items: baseline; gap: 6px; margin-top: 8px; font-variant-numeric: tabular-nums; font-weight: 700; font-size: 13px; padding: 2px 8px; border-radius: 6px; }
+.kpi-delta.up { background: var(--changed-light); color: var(--changed); }
+.kpi-delta.down { background: var(--success-light); color: var(--success); }
+.kpi-delta.flat { background: var(--surface); color: var(--text-muted); font-weight: 600; }
+.kpi-delta .rel { font-size: 11px; opacity: 0.85; }
+.kpi-why { margin-top: 10px; }
+
+/* Comparison table */
+.cmp-group { margin-bottom: 20px; }
+.cmp-group:last-child { margin-bottom: 0; }
+.cmp-group-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin: 0 0 8px; }
+.cmp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cmp-table th { text-align: right; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); font-weight: 700; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+.cmp-table th:first-child { text-align: left; }
+.cmp-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: right; font-variant-numeric: tabular-nums; }
+.cmp-table td:first-child { text-align: left; font-weight: 600; }
+.cmp-table tr:last-child td { border-bottom: none; }
+.cmp-table tr.changed td:first-child { color: var(--changed); }
+.cmp-state { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 9999px; }
+.cmp-state.changed { background: var(--changed-light); color: var(--changed); }
+.cmp-state.same { background: var(--surface2); color: var(--text-muted); }
+.cmp-na { color: var(--text-muted); }
+
+/* Delta / variance bars */
+.varbar-row { margin-bottom: 16px; }
+.varbar-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+.varbar-label .name { font-weight: 700; }
+.varbar-track { position: relative; }
+.varbar { height: 14px; border-radius: 7px; background: var(--surface2); position: relative; overflow: hidden; }
+.varbar .fill-base { position: absolute; left: 0; top: 0; bottom: 0; background: var(--border-strong); }
+.varbar .fill-scen { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); opacity: 0.35; }
+.varbar-pair { display: grid; grid-template-columns: 1fr; gap: 4px; }
+.varbar-single { height: 14px; border-radius: 7px; overflow: hidden; display: flex; }
+.varbar-single .seg-base { background: var(--border-strong); }
+.varbar-single .seg-delta-up { background: var(--changed); }
+.varbar-single .seg-delta-down { background: var(--success); }
+.bridge-caption { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+
+/* Impact path (reuses .graph-node styles) */
+.impact-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--text-muted); margin-top: 12px; }
+.impact-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend-dot { width: 12px; height: 12px; border-radius: 3px; border: 2px solid; }
+.legend-dot.changed  { border-color: var(--changed);  background: var(--changed-light); }
+.legend-dot.affected { border-color: var(--affected); background: var(--affected-light); }
+.legend-dot.unchanged{ border-color: var(--border-strong); background: var(--surface2); }
+.graph-node.unchanged { opacity: 0.7; }
+
+/* Assumptions / source panel */
+.assump-row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.assump-row:last-child { border-bottom: none; }
+.assump-name { font-weight: 600; }
+.assump-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 1px 6px; border-radius: 4px; }
+.assump-tag.override { background: var(--changed-light); color: var(--changed); }
+.assump-tag.source { background: var(--surface2); color: var(--text-muted); }
+.assump-tag.output { background: var(--accent-light); color: var(--accent); }
+.assump-vals { font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+.assump-source-note { font-size: 12px; color: var(--text-muted); margin-top: 12px; }
+
+/* Why / lineage */
+.why-chain { display: flex; flex-direction: column; gap: 8px; }
+.why-step { display: flex; align-items: baseline; gap: 10px; font-size: 13px; padding: 8px 12px; background: var(--surface2); border-radius: 8px; border-left: 3px solid var(--border-strong); }
+.why-step.driver { border-left-color: var(--changed); }
+.why-step .why-role { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); min-width: 92px; }
+.why-step .why-body { color: var(--text); }
+.tech-divider { display: flex; align-items: center; gap: 12px; margin: 8px 0 -8px; color: var(--text-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+.tech-divider::before, .tech-divider::after { content: ""; flex: 1; border-top: 1px solid var(--border); }
+
+/* ── D24: stale-build banner, Start Here nav, guided Excel workflow ───────── */
+.stale-banner {
+  background: var(--warn-light, #fef3c7); color: var(--warn, #92400e);
+  border-bottom: 2px solid var(--warn, #d97706);
+  padding: 12px 24px; font-size: 13px; line-height: 1.6;
+}
+.stale-banner strong { display: block; font-size: 14px; margin-bottom: 4px; }
+.stale-banner code {
+  background: rgba(0,0,0,0.08); padding: 1px 5px; border-radius: 4px;
+  font-family: ui-monospace, monospace;
+}
+.pnav-start { color: var(--accent); background: var(--accent-light); }
+
+.xl-steps {
+  display: flex; flex-wrap: wrap; gap: 8px; list-style: none;
+  margin: 0 0 18px; padding: 0; counter-reset: none;
+}
+.xl-step {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 999px;
+  padding: 6px 14px 6px 6px; font-size: 12.5px; font-weight: 600;
+  color: var(--text-secondary);
+}
+.xl-step.done { background: var(--success-light); color: var(--success); border-color: var(--success); }
+.xl-step.active { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
+.xl-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--surface); font-size: 11px; font-weight: 700;
+}
+.xl-panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px 18px; margin-bottom: 16px;
+}
+.xl-panel-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px; flex-wrap: wrap; margin-bottom: 10px;
+}
+.xl-hint { color: var(--text-secondary); font-size: 12.5px; margin: 4px 0 0; max-width: 72ch; }
+.xl-upload { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+.xl-upload input[type=file] { font-size: 13px; }
+.xl-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12.5px; }
+.xl-table th, .xl-table td {
+  text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border);
+}
+.xl-table th {
+  background: var(--surface2); color: var(--text-secondary); font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.xl-table tr.changed { background: var(--accent-light); }
+.xl-table tr.invalid { background: var(--error-light); }
+.xl-cell-ref { font-family: ui-monospace, monospace; color: var(--text-muted); }
+.xl-arrow { color: var(--accent); font-weight: 700; }
+.xl-limits { margin-top: 8px; font-size: 12.5px; color: var(--text-secondary); }
+.xl-limits summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+.xl-limits ul { margin: 6px 0 0; padding-left: 20px; line-height: 1.7; }
+.xl-chain { list-style: none; padding: 0; margin: 10px 0 0; }
+.xl-chain li {
+  padding: 7px 0 7px 26px; position: relative; font-size: 13px;
+  border-left: 2px solid var(--border); margin-left: 8px;
+}
+.xl-chain li::before {
+  content: "●"; position: absolute; left: -7px; top: 6px;
+  color: var(--accent); font-size: 12px; background: var(--surface);
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Federated Model Orchestration</h1>
+  <div class="header-stats">
+    <span id="health-badge" class="badge badge-info">checking…</span>
+    <span id="stat-models" class="header-stat"></span>
+    <span id="stat-deps" class="header-stat"></span>
+    <span id="platform-version" class="header-stat"></span>
+    <span id="build-badge" class="header-stat"></span>
+  </div>
+</header>
+
+<!-- D24: shown only when the server that answered is missing capabilities this page
+     needs. That is the exact failure that produced the reported /ui/governance 404 —
+     an older server process still bound to the port — and it used to be invisible. -->
+<div id="stale-build-banner" class="stale-banner" hidden></div>
+
+<!-- ══ Product navigation — the decision workflow, left to right ══════════════ -->
+<nav class="product-nav" id="product-nav" aria-label="Decision workflow">
+  <a href="/ui/start" class="pnav-item pnav-start">&#9737; Start Here</a>
+  <span class="pnav-sep">›</span>
+  <a href="#decision-overview" class="pnav-item" data-target="decision-overview">Overview</a>
+  <span class="pnav-sep">›</span>
+  <a href="#excel-section" class="pnav-item" data-target="excel-section">Excel Assumptions</a>
+  <span class="pnav-sep">›</span>
+  <a href="#comparison-section" class="pnav-item" data-target="comparison-section">Comparison</a>
+  <span class="pnav-sep">›</span>
+  <a href="#impact-path-section" class="pnav-item" data-target="impact-path-section">Impact &amp; Why</a>
+  <span class="pnav-sep">›</span>
+  <a href="#sources-section" class="pnav-item" data-target="sources-section">Sources &amp; Lineage</a>
+  <span class="pnav-sep">›</span>
+  <a href="#execution-governance-section" class="pnav-item" data-target="execution-governance-section">Execution</a>
+  <span class="pnav-sep">›</span>
+  <a href="/ui/governance" class="pnav-item">Governance</a>
+  <span class="pnav-spacer"></span>
+  <a href="#advanced-zone" class="pnav-item pnav-tech" data-target="advanced-zone">Advanced</a>
+</nav>
+
+<style id="d23-styles">
+/* ── D23 product-completion styles (additive) ─────────────────────────────── */
+.product-nav {
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+  padding: 10px 24px; background: var(--surface); border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow); font-size: 13px;
+}
+.pnav-item {
+  color: var(--text-secondary); text-decoration: none; font-weight: 600;
+  padding: 5px 10px; border-radius: 7px; white-space: nowrap;
+}
+.pnav-item:hover { background: var(--surface2); color: var(--text); }
+.pnav-item.active { background: var(--accent-light); color: var(--accent); }
+.pnav-sep { color: var(--text-muted); font-size: 12px; }
+.pnav-spacer { flex: 1 1 auto; }
+.pnav-tech { color: var(--text-muted); font-weight: 500; }
+@media (max-width: 640px) { .pnav-sep, .pnav-spacer { display: none; } .product-nav { gap: 2px; } }
+
+.sub-block { margin-bottom: 18px; }
+.sub-block:last-child { margin-bottom: 0; }
+
+/* Sources & provenance */
+.source-card {
+  border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;
+  background: var(--surface); margin-bottom: 10px;
+}
+.source-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.source-name { font-weight: 600; }
+.source-meta { display: flex; gap: 16px; flex-wrap: wrap; color: var(--text-secondary); font-size: 12px; margin-top: 6px; }
+.source-sub { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
+.prov-head, .prov-row {
+  display: grid; grid-template-columns: 1.2fr 2fr 1fr; gap: 12px; padding: 7px 4px;
+  font-size: 13px; border-bottom: 1px solid var(--border);
+}
+.prov-head { color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+.prov-row:last-child { border-bottom: none; }
+.prov-src { font-weight: 600; }
+.prov-ref { color: var(--text-secondary); word-break: break-word; }
+.prov-time { color: var(--text-muted); }
+
+/* Execution history — readable cards */
+.exec-card {
+  border: 1px solid var(--border); border-left: 3px solid var(--border-strong);
+  border-radius: 10px; padding: 12px 14px; background: var(--surface); margin-bottom: 10px;
+}
+.exec-card.succeeded { border-left-color: var(--success); }
+.exec-card.failed { border-left-color: var(--error); }
+.exec-card.running, .exec-card.requested { border-left-color: var(--warn); }
+.exec-main { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.exec-context { font-weight: 600; }
+.exec-meta { display: flex; gap: 16px; flex-wrap: wrap; color: var(--text-secondary); font-size: 12px; margin-top: 6px; }
+.exec-err { color: var(--error); }
+.exec-tech { margin-top: 8px; font-size: 12px; }
+.exec-tech summary { color: var(--text-muted); cursor: pointer; }
+.tech-kv { color: var(--text-secondary); margin-top: 4px; }
+.tech-kv code { font-size: 11px; }
+
+/* Governance panel */
+.gov-stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.gov-stat { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 16px; min-width: 96px; }
+.gov-n { font-size: 22px; font-weight: 700; }
+.gov-l { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+.gov-list { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.gov-row { display: grid; grid-template-columns: 1fr 1.6fr 1fr; gap: 10px; padding: 8px 12px;
+  border-bottom: 1px solid var(--border); font-size: 13px; align-items: center; }
+.gov-row:last-child { border-bottom: none; }
+.gov-party { font-weight: 600; }
+.gov-exp { color: var(--text-muted); font-size: 12px; text-align: right; }
+.gov-link { margin-top: 12px; }
+.gov-link a { color: var(--accent); text-decoration: none; font-weight: 600; font-size: 13px; }
+.muted { color: var(--text-muted); font-weight: 400; }
+</style>
+
+<main>
+
+  <div id="global-error" class="alert alert-error" style="display:none;"></div>
+
+  <!-- ══ DECISION WORKSPACE (D20) ═══════════════════════════ -->
+
+  <!-- ── Decision Overview ────────────────────────────────── -->
+  <section class="section decision-hero" id="decision-overview">
+    <div class="section-head">
+      <div>
+        <h2>Decision Overview</h2>
+        <p class="section-sub" id="decision-vs-label">Baseline vs Scenario</p>
+      </div>
+      <div class="decision-selectors" id="decision-selectors" hidden>
+        <div class="form-field">
+          <label for="baseline-select">Baseline</label>
+          <select id="baseline-select" onchange="onBaselineChange()"></select>
+        </div>
+        <div class="form-field">
+          <label for="scenario-select">Scenario</label>
+          <select id="scenario-select" onchange="onScenarioChange()"></select>
+        </div>
+      </div>
+    </div>
+    <div id="decision-message" class="alert alert-info" style="display:none;"></div>
+    <div id="assumption-change-summary" class="assumption-summary"></div>
+    <div id="kpi-cards" class="kpi-grid">
+      <div class="loader">Loading decision data…</div>
+    </div>
+  </section>
+
+  <!-- ── Excel Assumptions — guided workflow (D24) ────────── -->
+  <section class="section" id="excel-section">
+    <div class="section-head">
+      <div>
+        <h2>Excel Assumptions</h2>
+        <p class="section-sub">
+          Change a number in a spreadsheet and watch it travel through every dependent
+          model. Nothing is written until you press Commit.
+        </p>
+      </div>
+    </div>
+
+    <ol class="xl-steps" id="xl-steps">
+      <li class="xl-step" data-step="1"><span class="xl-num">1</span> Download the workbook</li>
+      <li class="xl-step" data-step="2"><span class="xl-num">2</span> Edit a value in Excel</li>
+      <li class="xl-step" data-step="3"><span class="xl-num">3</span> Upload &amp; validate</li>
+      <li class="xl-step" data-step="4"><span class="xl-num">4</span> Review what would change</li>
+      <li class="xl-step" data-step="5"><span class="xl-num">5</span> Commit ingestion</li>
+      <li class="xl-step" data-step="6"><span class="xl-num">6</span> See the impact</li>
+    </ol>
+
+    <div class="xl-panel">
+      <div class="xl-panel-head">
+        <div>
+          <div class="panel-title">Step 1 &amp; 2 — Get a workbook and edit it</div>
+          <p class="xl-hint" id="xl-mapping-desc">Loading the assumption mapping…</p>
+        </div>
+        <a class="btn btn-primary" id="xl-template-link"
+           href="/api/ingestions/template?mapping=port_assumptions_v1">
+          &#11015; Download assumptions workbook (.xlsx)
+        </a>
+      </div>
+      <p class="xl-hint">
+        The download is pre-filled with the values the platform holds <em>right now</em>, so
+        the only difference after you edit it is the change you made. Edit the
+        <strong>Value</strong> column only — the platform reads fixed cell addresses, so
+        inserting or deleting rows will break the mapping.
+      </p>
+      <div id="xl-mapping-table"><div class="loader">Loading cell mapping…</div></div>
+    </div>
+
+    <div class="xl-panel">
+      <div class="xl-panel-head">
+        <div>
+          <div class="panel-title">Step 3 &amp; 4 — Upload and validate (nothing is written)</div>
+          <p class="xl-hint">
+            Validate is a dry run. It reads your workbook, compares every mapped cell to the
+            current value, and runs the same contract checks the real ingestion runs — but it
+            writes nothing, records no ingestion, and propagates nothing.
+          </p>
+        </div>
+      </div>
+      <div class="xl-upload">
+        <input type="file" id="xl-file" accept=".xlsx"
+               onchange="onExcelFileChosen()" aria-label="Choose an .xlsx workbook">
+        <button class="btn" id="xl-validate-btn" onclick="validateWorkbook()" disabled>
+          Validate workbook
+        </button>
+        <button class="btn btn-warn" id="xl-commit-btn" onclick="commitWorkbook()" disabled>
+          &#9889; Commit ingestion
+        </button>
+      </div>
+      <div id="xl-validate-result"></div>
+    </div>
+
+    <div class="xl-panel" id="xl-commit-panel" hidden>
+      <div class="panel-title">Step 5 &amp; 6 — Committed: what happened</div>
+      <div id="xl-commit-result"></div>
+    </div>
+
+    <details class="xl-limits">
+      <summary>What this Excel connector does <strong>not</strong> do</summary>
+      <ul id="xl-notes"></ul>
+    </details>
+  </section>
+
+  <!-- ── Scenario Comparison ──────────────────────────────── -->
+  <section class="section" id="comparison-section" hidden>
+    <div class="section-head">
+      <div>
+        <h2>Scenario Comparison</h2>
+        <p class="section-sub">Every metric — baseline, scenario and change. Values load from the comparison API.</p>
+      </div>
+    </div>
+    <div id="comparison-content"></div>
+  </section>
+
+  <!-- ── KPI delta / variance visuals ─────────────────────── -->
+  <section class="section" id="variance-section" hidden>
+    <div class="section-head">
+      <div>
+        <h2>Change Magnitude</h2>
+        <p class="section-sub">Baseline vs scenario for the outputs that changed</p>
+      </div>
+    </div>
+    <div id="variance-content"></div>
+  </section>
+
+  <!-- ── Dependency / Impact Path ─────────────────────────── -->
+  <section class="section" id="impact-path-section" hidden>
+    <div class="section-head">
+      <div>
+        <h2>Dependency &amp; Impact Path</h2>
+        <p class="section-sub">From the changed assumption through affected models to Decision Summary</p>
+      </div>
+    </div>
+    <div id="impact-path-content"></div>
+    <div class="impact-legend">
+      <span><span class="legend-dot changed"></span> Changed assumption</span>
+      <span><span class="legend-dot affected"></span> Affected output</span>
+      <span><span class="legend-dot unchanged"></span> Unchanged</span>
+    </div>
+  </section>
+
+  <!-- ── Assumptions / Source + Why ───────────────────────── -->
+  <div class="dual-panel">
+    <section class="section" id="assumptions-section" hidden>
+      <div class="panel-title">Assumptions &amp; Source</div>
+      <div id="assumptions-content"></div>
+    </section>
+    <section class="section" id="why-section" hidden>
+      <div class="panel-title">Why did it change?</div>
+      <div id="why-content"><p class="placeholder">Select a changed KPI's “Why?” to trace its lineage in plain language.</p></div>
+    </section>
+  </div>
+
+  <!-- ── Sources & Provenance (D23) ───────────────────────── -->
+  <section class="section" id="sources-section">
+    <div class="section-head">
+      <div>
+        <h2>Sources &amp; Provenance</h2>
+        <p class="section-sub">Where the baseline assumptions came from — ingested workbooks and change history</p>
+      </div>
+    </div>
+    <div id="sources-content"><div class="loader">Loading sources…</div></div>
+  </section>
+
+  <!-- ── Execution & Governance (D23) ─────────────────────── -->
+  <section class="section" id="execution-governance-section">
+    <div class="section-head">
+      <div>
+        <h2>Execution &amp; Governance</h2>
+        <p class="section-sub">What produced these values, and what is approved for external exposure</p>
+      </div>
+    </div>
+    <div class="dual-panel">
+      <div class="sub-block">
+        <div class="panel-title">Recent decision executions</div>
+        <div id="exec-readable-content"><div class="loader">Loading executions…</div></div>
+      </div>
+      <div class="sub-block">
+        <div class="panel-title">Governance &amp; approvals</div>
+        <div id="governance-panel-content"><div class="loader">Loading governance…</div></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="tech-divider" id="advanced-zone">Advanced &amp; Technical Detail</div>
+
+  <!-- ── Federation Graph ─────────────────────────────────── -->
+  <section class="section" id="graph-section">
+    <div class="section-head">
+      <div>
+        <h2>Federation Graph</h2>
+        <p class="section-sub">Model dependencies and execution topology</p>
+      </div>
+    </div>
+    <div id="graph-container" class="graph-container">
+      <div class="loader">Loading federation…</div>
+    </div>
+  </section>
+
+  <!-- ── Model Detail (hidden) ────────────────────────────── -->
+  <div id="model-detail" hidden></div>
+
+  <!-- ── Actions + Impact ─────────────────────────────────── -->
+  <div class="dual-panel">
+    <section class="section">
+      <div class="panel-title">Execute &amp; Propagate</div>
+      <div class="action-block">
+        <div class="action-label">Initial Graph Execution</div>
+        <div class="form-inline">
+          <div class="form-field">
+            <label for="fuel-price">Fuel Price</label>
+            <input type="number" id="fuel-price" value="100" min="1" step="1">
+          </div>
+          <button class="btn btn-primary" id="run-btn" onclick="runGraph()">&#9654; Run Graph</button>
+        </div>
+      </div>
+      <hr class="divider">
+      <div class="action-block">
+        <div class="action-label">Change &amp; Propagate</div>
+        <div class="form-inline">
+          <div class="form-field">
+            <label for="new-fuel-price">New Fuel Price</label>
+            <input type="number" id="new-fuel-price" value="120" min="1" step="1">
+          </div>
+          <button class="btn btn-warn" id="propagate-btn" onclick="propagate()">&#9889; Apply &amp; Propagate</button>
+        </div>
+      </div>
+    </section>
+    <section class="section">
+      <div class="panel-title">Impact Summary</div>
+      <div id="impact-content">
+        <p class="placeholder">Run the graph or propagate a change to see the impact on the federation.</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- ── Results ──────────────────────────────────────────── -->
+  <section class="section" id="results-section" hidden>
+    <div class="section-head">
+      <h2>Results</h2>
+    </div>
+    <div id="results-content"></div>
+  </section>
+
+  <!-- ── Lineage ──────────────────────────────────────────── -->
+  <section class="section" id="lineage-section" hidden>
+    <div class="section-head">
+      <div>
+        <h2>Lineage</h2>
+        <p class="section-sub">Why downstream models changed</p>
+      </div>
+    </div>
+    <div id="lineage-content"></div>
+  </section>
+
+  <!-- ── History ──────────────────────────────────────────── -->
+  <section class="section" id="history-section">
+    <div class="section-head section-toggle" onclick="toggleHistory()">
+      <h2>Recent Executions <span id="history-toggle" class="toggle-icon">&#9656;</span></h2>
+      <button class="btn btn-ghost" onclick="event.stopPropagation(); loadHistory()" style="font-size:12px;padding:5px 12px;">&#8635; Refresh</button>
+    </div>
+    <div id="history-content" hidden></div>
+  </section>
+
+</main>
+
+<script>
+"use strict";
+
+// ── State ──────────────────────────────────────────────────────────────────
+let demoConfig = {};
+let modelsData = [];
+let versionsData = {};
+let versionNameMap = {};
+let versionToModel = {};
+let graphData = null;
+let selectedVid = null;
+let previousResults = {};
+let currentResults = {};
+let affectedVids = new Set();
+let lastRunId = null;
+let lastPropagation = null;
+
+// ── API ────────────────────────────────────────────────────────────────────
+const API = {
+  async get(path) {
+    const res = await fetch(path);
+    if (!res.ok) {
+      const body = await res.text();
+      let detail = body;
+      try { detail = JSON.parse(body).detail || body; } catch {}
+      throw new Error(res.status + ": " + detail);
+    }
+    return res.json();
+  },
+  async post(path, body) {
+    const res = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = text; }
+    if (!res.ok) {
+      const detail = (typeof data === "object" && data.detail) ? data.detail : text;
+      throw new Error(res.status + ": " + detail);
+    }
+    return data;
+  },
+};
+
+// ── Utilities ──────────────────────────────────────────────────────────────
+function esc(s) {
+  if (s == null) return "";
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+function shortId(id) { return id ? id.slice(0, 8) + "…" : "—"; }
+function versionName(vid) { return versionNameMap[vid] || shortId(vid); }
+function fmtDate(iso) {
+  if (!iso) return "—";
+  try { return new Date(iso).toLocaleString(undefined, { month:"short", day:"numeric", hour:"2-digit", minute:"2-digit", second:"2-digit" }); }
+  catch { return iso; }
+}
+function statusBadge(status) {
+  var s = (status || "").toLowerCase();
+  return '<span class="status-badge status-' + s + '">' + esc(status) + '</span>';
+}
+function numericValue(valueJson) {
+  try {
+    var obj = JSON.parse(valueJson);
+    if (typeof obj === "number") return obj;
+    if (obj && typeof obj === "object") {
+      var vals = Object.values(obj);
+      if (vals.length === 1 && typeof vals[0] === "number") return vals[0];
+    }
+    return obj;
+  } catch { return valueJson; }
+}
+function extractNumeric(outputs) {
+  if (!outputs) return null;
+  var vals = Object.values(outputs);
+  if (vals.length === 1 && typeof vals[0] === "number") return vals[0];
+  if (typeof outputs.value === "number") return outputs.value;
+  return null;
+}
+function setLoading(btnId, loading) {
+  var btn = document.getElementById(btnId);
+  if (btn) btn.disabled = loading;
+}
+function showGlobalError(msg) {
+  var el = document.getElementById("global-error");
+  el.textContent = msg;
+  el.style.display = "block";
+  setTimeout(function() { el.style.display = "none"; }, 8000);
+}
+
+// ── Health ──────────────────────────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    var h = await API.get("/health");
+    var badge = document.getElementById("health-badge");
+    badge.textContent = h.ok ? "● healthy" : "● degraded";
+    badge.className = "badge " + (h.ok ? "badge-ok" : "badge-err");
+    var ver = document.getElementById("platform-version");
+    if (ver && h.version) ver.textContent = h.version;
+  } catch {}
+}
+
+// ── Summary ────────────────────────────────────────────────────────────────
+function renderSummary() {
+  document.getElementById("stat-models").textContent =
+    modelsData.length + " model" + (modelsData.length !== 1 ? "s" : "");
+  var depCount = graphData ? (graphData.dependencies || []).length : 0;
+  document.getElementById("stat-deps").textContent =
+    depCount + " dependenc" + (depCount !== 1 ? "ies" : "y");
+}
+
+// ── Graph ──────────────────────────────────────────────────────────────────
+function renderGraph() {
+  var el = document.getElementById("graph-container");
+  if (!graphData || !(graphData.execution_order || []).length) {
+    el.innerHTML = '<p class="placeholder">No models in the execution graph.</p>';
+    return;
+  }
+  var order = graphData.execution_order;
+  var html = "";
+  for (var i = 0; i < order.length; i++) {
+    var vid = order[i];
+    if (i > 0) {
+      html += '<div class="graph-edge">' +
+        '<svg width="48" height="24" viewBox="0 0 48 24" fill="none">' +
+        '<line x1="0" y1="12" x2="34" y2="12" stroke="currentColor" stroke-width="2"/>' +
+        '<polygon points="34,6 48,12 34,18" fill="currentColor"/>' +
+        '</svg></div>';
+    }
+    html += '<div class="graph-node" data-vid="' + esc(vid) + '" ' +
+      'onclick="selectNode(\'' + esc(vid) + '\')" tabindex="0" role="button" ' +
+      'aria-label="' + esc(versionName(vid)) + '">' +
+      '<div class="node-name">' + esc(versionName(vid)) + '</div>' +
+      '<div class="node-value"></div>' +
+      '<div class="node-label"></div>' +
+      '</div>';
+  }
+  el.innerHTML = html;
+}
+
+function updateGraphStates(state) {
+  var nodes = document.querySelectorAll(".graph-node");
+  nodes.forEach(function(n) {
+    n.classList.remove("running","succeeded","affected","changed");
+  });
+
+  if (state === "running") {
+    nodes.forEach(function(n) { n.classList.add("running"); });
+  } else if (state === "succeeded") {
+    nodes.forEach(function(n) { n.classList.add("succeeded"); });
+  } else if (state === "propagated") {
+    nodes.forEach(function(n) {
+      var vid = n.dataset.vid;
+      if (vid === demoConfig.fuel_price_version_id) {
+        n.classList.add("changed");
+      } else if (affectedVids.has(vid)) {
+        n.classList.add("affected");
+      } else {
+        n.classList.add("succeeded");
+      }
+    });
+  }
+
+  // Update values on nodes
+  nodes.forEach(function(n) {
+    var vid = n.dataset.vid;
+    var valEl = n.querySelector(".node-value");
+    var labelEl = n.querySelector(".node-label");
+    var curr = currentResults[vid];
+    if (valEl && curr && curr.value != null) {
+      valEl.textContent = typeof curr.value === "number" ? curr.value : String(curr.value);
+    }
+    if (labelEl) {
+      if (state === "propagated") {
+        if (vid === demoConfig.fuel_price_version_id) labelEl.textContent = "changed";
+        else if (affectedVids.has(vid)) labelEl.textContent = "re-executed";
+        else labelEl.textContent = "";
+      } else if (state === "succeeded") {
+        labelEl.textContent = "executed";
+      } else {
+        labelEl.textContent = "";
+      }
+    }
+  });
+}
+
+// ── Model detail ───────────────────────────────────────────────────────────
+function selectNode(vid) {
+  var detail = document.getElementById("model-detail");
+  if (selectedVid === vid) {
+    selectedVid = null;
+    document.querySelectorAll(".graph-node").forEach(function(n) { n.classList.remove("selected"); });
+    detail.hidden = true;
+    return;
+  }
+  selectedVid = vid;
+  document.querySelectorAll(".graph-node").forEach(function(n) {
+    n.classList.toggle("selected", n.dataset.vid === vid);
+  });
+  detail.hidden = false;
+
+  var name = versionName(vid);
+  var model = versionToModel[vid];
+  var version = null;
+  if (model && versionsData[model.id]) {
+    version = versionsData[model.id].find(function(v) { return v.id === vid; });
+  }
+  var deps = graphData ? graphData.dependencies || [] : [];
+  var upstream = deps.filter(function(d) { return d.consumer_version_id === vid; })
+    .map(function(d) { return versionName(d.producer_version_id); });
+  var downstream = deps.filter(function(d) { return d.producer_version_id === vid; })
+    .map(function(d) { return versionName(d.consumer_version_id); });
+  var curr = currentResults[vid];
+
+  detail.innerHTML =
+    '<div class="detail-panel">' +
+    '<div class="detail-head"><h3>' + esc(name) + '</h3>' +
+    '<button class="btn-close" onclick="selectNode(\'' + esc(vid) + '\')" aria-label="Close">&times;</button></div>' +
+    '<div class="detail-grid">' +
+    (model ? '<div><div class="detail-label">Owner</div><div class="detail-val">' + esc(model.owner) + '</div></div>' +
+    '<div><div class="detail-label">Type</div><div class="detail-val">' + esc(model.model_type) + '</div></div>' +
+    '<div><div class="detail-label">Status</div><div class="detail-val">' + statusBadge(model.status) + '</div></div>' : '') +
+    (version ? '<div><div class="detail-label">Version</div><div class="detail-val">' + esc(version.semver) + ' ' + (version.is_active ? statusBadge("active") : '') + '</div></div>' : '') +
+    '<div><div class="detail-label">Upstream</div><div class="detail-val">' + (upstream.length ? upstream.map(esc).join(", ") : "None (source)") + '</div></div>' +
+    '<div><div class="detail-label">Downstream</div><div class="detail-val">' + (downstream.length ? downstream.map(esc).join(", ") : "None (terminal)") + '</div></div>' +
+    (curr ? '<div><div class="detail-label">Latest Value</div><div class="detail-val" style="font-size:20px;font-weight:800;color:var(--accent);">' +
+    (typeof curr.value === "number" ? curr.value : esc(String(curr.value))) + '</div></div>' : '') +
+    (model && model.description ? '<div style="grid-column:1/-1"><div class="detail-label">Description</div><div class="detail-val">' + esc(model.description) + '</div></div>' : '') +
+    '</div>' +
+    '<div class="detail-meta"><span class="mono">Version ID: ' + esc(vid) + '</span></div>' +
+    '</div>';
+}
+
+// ── Execute ────────────────────────────────────────────────────────────────
+async function runGraph() {
+  if (!demoConfig.terminal_version_id) {
+    showGlobalError("Demo configuration not loaded. Check /api/demo-config.");
+    return;
+  }
+  setLoading("run-btn", true);
+  showImpact("executing");
+  updateGraphStates("running");
+
+  try {
+    var fuelPrice = parseFloat(document.getElementById("fuel-price").value);
+    // The fuel price is written to the source dataset; the server validates it against the
+    // dataset contract and derives routing, results and lineage from the federation.
+    var body = {
+      target_version_id: demoConfig.terminal_version_id,
+      dataset_values: {},
+    };
+    body.dataset_values[demoConfig.input_dataset_id] = inputRecord(fuelPrice);
+    var outcome = await API.post("/api/graph-executions", body);
+    if (!outcome.success) {
+      showImpact("error", null, outcome.error || "Graph run failed");
+      updateGraphStates("idle");
+      return;
+    }
+
+    previousResults = {};
+    currentResults = {};
+    affectedVids.clear();
+    lastPropagation = null;
+
+    var order = outcome.execution_order || [];
+    var stepMap = outcome.step_outcomes || {};
+    for (var i = 0; i < order.length; i++) {
+      var vid = order[i];
+      var step = stepMap[vid];
+      if (step && step.outputs) {
+        currentResults[vid] = { value: extractNumeric(step.outputs), resultId: null };
+      }
+    }
+    // Fetch result IDs
+    var rids = outcome.recorded_result_ids || [];
+    for (var j = 0; j < rids.length; j++) {
+      try {
+        var r = await API.get("/api/results/" + rids[j]);
+        if (r.model_version_id && currentResults[r.model_version_id]) {
+          currentResults[r.model_version_id].resultId = r.id;
+        }
+      } catch {}
+    }
+
+    lastRunId = outcome.graph_run_id;
+
+    updateGraphStates("succeeded");
+    showImpact("executed", outcome);
+    renderResults();
+    hideLineage();
+
+  } catch (e) {
+    showImpact("error", null, e.message);
+    updateGraphStates("idle");
+  } finally {
+    setLoading("run-btn", false);
+  }
+}
+
+// ── Propagate ──────────────────────────────────────────────────────────────
+async function propagate() {
+  if (!demoConfig.input_dataset_id) {
+    showGlobalError("Demo configuration not loaded.");
+    return;
+  }
+  setLoading("propagate-btn", true);
+  showImpact("propagating");
+
+  try {
+    var newPrice = parseFloat(document.getElementById("new-fuel-price").value);
+    var body = {
+      dataset_id: demoConfig.input_dataset_id,
+      value: inputRecord(newPrice),
+      triggered_by: "ui",
+    };
+    var result = await API.post("/api/changes/propagate", body);
+    var field = demoConfig.input_field || "value";
+    var oldPrice = result.old_value ? result.old_value[field] : null;
+
+    if (!result.changed && !result.graph_run_id) {
+      showImpact("unchanged", result, null, oldPrice, newPrice);
+      return;
+    }
+    if (!result.success) {
+      showImpact("error", null, result.error || "Propagation failed");
+      return;
+    }
+
+    // Shift current → previous
+    previousResults = {};
+    for (var vid in currentResults) {
+      previousResults[vid] = currentResults[vid].value;
+    }
+
+    affectedVids = new Set(result.affected_version_ids || []);
+    lastPropagation = result;
+
+    // Fetch new result values
+    currentResults = {};
+    var rids = (result.recorded_result_ids || []).slice(0, 10);
+    for (var j = 0; j < rids.length; j++) {
+      try {
+        var r = await API.get("/api/results/" + rids[j]);
+        if (r.model_version_id) {
+          currentResults[r.model_version_id] = { value: numericValue(r.value_json), resultId: r.id };
+        }
+      } catch {}
+    }
+
+    updateGraphStates("propagated");
+    showImpact("propagated", result, null, oldPrice, newPrice);
+    renderResults();
+    renderLineage(result);
+
+  } catch (e) {
+    showImpact("error", null, e.message);
+  } finally {
+    setLoading("propagate-btn", false);
+  }
+}
+
+// ── Impact panel ───────────────────────────────────────────────────────────
+function showImpact(state, data, errorMsg, oldVal, newVal) {
+  var el = document.getElementById("impact-content");
+  if (state === "executing") {
+    el.innerHTML = '<div class="loader">Executing graph…</div>';
+  } else if (state === "executed") {
+    var steps = (data.execution_order || []).length;
+    var results = (data.recorded_result_ids || []).length;
+    el.innerHTML =
+      '<div class="impact-status success">✓ Graph execution succeeded</div>' +
+      '<div class="impact-stats">' +
+      '<div><div class="impact-stat-value">' + steps + '</div><div class="impact-stat-label">Models executed</div></div>' +
+      '<div><div class="impact-stat-value">' + results + '</div><div class="impact-stat-label">Results recorded</div></div>' +
+      '</div>';
+  } else if (state === "propagating") {
+    el.innerHTML = '<div class="loader">Propagating change…</div>';
+  } else if (state === "propagated") {
+    var affected = (data.affected_version_ids || []).length;
+    var executed = (data.execution_order || []).length;
+    var res = (data.recorded_result_ids || []).length;
+    el.innerHTML =
+      '<div class="impact-status ' + (data.success ? "success" : "error") + '">' +
+      (data.success ? "✓ Propagation succeeded" : "✗ Propagation failed") + '</div>' +
+      (oldVal != null && newVal != null ?
+        '<div class="impact-change"><span class="impact-change-label">Fuel Price</span>' +
+        '<span class="impact-change-values">' + oldVal + ' → ' + newVal + '</span></div>' : '') +
+      '<div class="impact-stats">' +
+      '<div><div class="impact-stat-value">' + affected + '</div><div class="impact-stat-label">Affected</div></div>' +
+      '<div><div class="impact-stat-value">' + executed + '</div><div class="impact-stat-label">Re-executed</div></div>' +
+      '<div><div class="impact-stat-value">' + res + '</div><div class="impact-stat-label">Results</div></div>' +
+      '</div>';
+  } else if (state === "unchanged") {
+    el.innerHTML =
+      '<div class="impact-status success">No change — Fuel Price is already ' + esc(newVal) + '</div>' +
+      '<p class="placeholder">The dataset value is identical, so nothing was re-executed.</p>';
+  } else if (state === "error") {
+    el.innerHTML = '<div class="impact-status error">✗ ' + esc(errorMsg || "Unknown error") + '</div>';
+  }
+}
+
+function inputRecord(v) {
+  var rec = {};
+  rec[demoConfig.input_field || "value"] = v;
+  return rec;
+}
+
+// ── Results ────────────────────────────────────────────────────────────────
+function renderResults() {
+  var section = document.getElementById("results-section");
+  var el = document.getElementById("results-content");
+  if (!Object.keys(currentResults).length) { section.hidden = true; return; }
+  section.hidden = false;
+
+  var order = graphData ? graphData.execution_order : Object.keys(currentResults);
+  var hasPrev = Object.keys(previousResults).length > 0;
+
+  var html = '<div class="results-grid">';
+  for (var i = 0; i < order.length; i++) {
+    var vid = order[i];
+    var curr = currentResults[vid];
+    if (!curr) continue;
+    var prev = previousResults[vid];
+    var isAff = affectedVids.has(vid);
+    var delta = "";
+    if (hasPrev && prev != null && typeof curr.value === "number" && typeof prev === "number") {
+      var diff = curr.value - prev;
+      var sign = diff > 0 ? "+" : "";
+      delta = '<div class="result-delta ' + (diff > 0 ? "delta-up" : diff < 0 ? "delta-down" : "") + '">' + sign + diff + '</div>';
+    }
+    html += '<div class="result-card ' + (isAff ? "affected" : "") + '">' +
+      '<div class="result-name">' + esc(versionName(vid)) + '</div>' +
+      '<div class="result-value">' + (typeof curr.value === "number" ? curr.value : esc(String(curr.value))) + '</div>' +
+      (hasPrev && prev != null ? '<div class="result-prev">was ' + prev + '</div>' : '') +
+      delta +
+      (curr.resultId ? '<div class="result-meta"><button class="btn-link" onclick="showResultLineage(\'' + esc(curr.resultId) + '\')">View lineage</button></div>' : '') +
+      '</div>';
+  }
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+// ── Lineage ────────────────────────────────────────────────────────────────
+function renderLineage(propResult) {
+  var section = document.getElementById("lineage-section");
+  var el = document.getElementById("lineage-content");
+  if (!propResult || !(propResult.execution_order || []).length) { section.hidden = true; return; }
+  section.hidden = false;
+
+  var order = propResult.execution_order;
+  var affected = new Set(propResult.affected_version_ids || []);
+  var sourceVid = propResult.source_version_id;
+
+  var html = '<div class="lineage-chain">';
+  for (var i = 0; i < order.length; i++) {
+    var vid = order[i];
+    var isSource = (vid === sourceVid);
+    var isAff = affected.has(vid);
+    var role = isSource ? "changed" : isAff ? "affected" : "unchanged";
+    if (i > 0) html += '<div class="lineage-arrow">→</div>';
+    html += '<div class="lineage-node ' + role + '">' +
+      '<div class="lineage-node-name">' + esc(versionName(vid)) + '</div>' +
+      '<div class="lineage-node-role">' + role + '</div></div>';
+  }
+  html += '</div><div id="lineage-detail"></div>';
+  el.innerHTML = html;
+}
+
+function hideLineage() {
+  document.getElementById("lineage-section").hidden = true;
+}
+
+async function showResultLineage(resultId) {
+  var el = document.getElementById("lineage-detail");
+  if (!el) {
+    document.getElementById("lineage-section").hidden = false;
+    var lc = document.getElementById("lineage-content");
+    lc.innerHTML = '<div id="lineage-detail"></div>';
+    el = document.getElementById("lineage-detail");
+  }
+  el.innerHTML = '<div class="loader">Loading lineage…</div>';
+  try {
+    var lin = await API.get("/api/lineage/" + resultId);
+    var allEdges = (lin.edges_from || []).concat(lin.edges_to || []);
+    if (!allEdges.length) {
+      el.innerHTML = '<div class="lineage-detail-card"><h4>Lineage for ' + shortId(resultId) + '</h4><p class="placeholder">No lineage edges for this result.</p></div>';
+      return;
+    }
+    var rows = allEdges.map(function(e) {
+      return '<div class="lineage-edge-row"><span class="mono">' + shortId(e.source_result_id) +
+        '</span><span class="lineage-edge-arrow">→</span><span class="mono">' +
+        shortId(e.target_result_id) + '</span></div>';
+    }).join("");
+    el.innerHTML = '<div class="lineage-detail-card"><h4>Data Lineage for ' + shortId(resultId) + '</h4>' + rows + '</div>';
+  } catch (e) {
+    el.innerHTML = '<div class="alert alert-error">Lineage: ' + esc(e.message) + '</div>';
+  }
+}
+
+// ── History ────────────────────────────────────────────────────────────────
+function toggleHistory() {
+  var content = document.getElementById("history-content");
+  var toggle = document.getElementById("history-toggle");
+  if (content.hidden) {
+    content.hidden = false;
+    toggle.innerHTML = "&#9662;";
+    loadHistory();
+  } else {
+    content.hidden = true;
+    toggle.innerHTML = "&#9656;";
+  }
+}
+
+async function loadHistory() {
+  var el = document.getElementById("history-content");
+  el.innerHTML = '<div class="loader">Loading…</div>';
+  try {
+    var runs = await API.get("/api/executions?limit=10");
+    if (!runs.length) { el.innerHTML = '<p class="placeholder">No executions recorded yet.</p>'; return; }
+    el.innerHTML = '<div class="history-list">' + runs.map(function(r) {
+      return '<div class="history-item">' +
+        '<div class="history-time">' + fmtDate(r.created_at) + '</div>' +
+        '<div class="history-status">' + statusBadge(r.status) + '</div>' +
+        '<div class="history-trigger">' + esc((r.trigger_type || r.triggered_by || "manual").replace(/_/g, " ")) + '</div>' +
+        '<div class="history-id"><span class="mono">' + shortId(r.id) + '</span></div>' +
+        '</div>';
+    }).join("") + '</div>';
+  } catch (e) {
+    el.innerHTML = '<div class="alert alert-error">' + esc(e.message) + '</div>';
+  }
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+(async function init() {
+  await checkHealth();
+  // D24: before anything else, find out whether this server can do what the page needs.
+  await checkBuild();
+
+  try {
+    var configP = API.get("/api/demo-config");
+    var modelsP = API.get("/api/models");
+    var results = await Promise.all([configP, modelsP]);
+    demoConfig = results[0] || {};
+    modelsData = results[1] || [];
+
+    // Build version→name map from demo config
+    (demoConfig.models || []).forEach(function(m) { versionNameMap[m.version_id] = m.name; });
+
+    // Fetch versions for each model
+    for (var i = 0; i < modelsData.length; i++) {
+      var m = modelsData[i];
+      try {
+        var vs = await API.get("/api/models/" + m.id + "/versions");
+        versionsData[m.id] = vs;
+        vs.forEach(function(v) {
+          if (!versionNameMap[v.id]) versionNameMap[v.id] = m.name;
+          versionToModel[v.id] = m;
+        });
+      } catch {}
+    }
+
+    // Load graph
+    try { graphData = await API.get("/api/graph"); } catch {}
+
+    renderSummary();
+    renderGraph();
+
+  } catch (e) {
+    showGlobalError("Could not load federation: " + e.message);
+  }
+})();
+</script>
+
+<script>
+"use strict";
+// ══ Decision workspace (D20) ═══════════════════════════════════════════════════
+// Reads baseline↔scenario comparison from the D19 API. No numeric results are hard-coded;
+// UUIDs are resolved to human-readable names via /api/datasets, /api/decision-config.
+
+let decisionConfig = {};
+let dsById = {};              // dataset_id -> DatasetOut
+let outputDsToModel = {};     // output_dataset_id -> model name
+let portVersionIds = new Set();
+let scenarioResultsCache = {}; // run_id -> [ResultOut]
+
+const FIELD_LABELS = {
+  annual_teu: "Annual TEU",
+  berth_utilization_pct: "Berth Utilization",
+  utilization_pct: "Berth Utilization",
+  annual_fuel_cost_usd: "Annual Fuel Cost",
+  annual_fuel_t: "Annual Fuel Burned",
+  fuel_cost_per_teu: "Fuel Cost / TEU",
+  annual_emissions_tco2: "Annual Emissions",
+  emissions_per_teu: "Emissions / TEU",
+  congestion: "Congestion",
+  congestion_status: "Congestion",
+};
+// Preferred headline order (labels/order only — never values).
+const KPI_ORDER = ["annual_teu", "annual_fuel_cost_usd", "fuel_cost_per_teu",
+  "annual_emissions_tco2", "emissions_per_teu", "berth_utilization_pct", "congestion_status"];
+
+function prettify(s) { return String(s || "").replace(/_/g, " ").replace(/\b\w/g, function(c){return c.toUpperCase();}); }
+function fieldLabel(f) { return FIELD_LABELS[f] || prettify(f); }
+function datasetLabel(id) {
+  if (id === decisionConfig.assumptions_dataset_id) return "Assumptions";
+  if (outputDsToModel[id]) return outputDsToModel[id];
+  return (dsById[id] && prettify(dsById[id].name)) || (id ? id.slice(0,8)+"…" : "—");
+}
+function fmtNum(v) {
+  if (v == null) return "n/a";
+  if (typeof v === "boolean") return v ? "Yes" : "No";
+  if (typeof v !== "number") return esc(String(v));
+  var a = Math.abs(v);
+  if (a !== 0 && a < 0.01) return v.toPrecision(3);
+  if (Number.isInteger(v)) return v.toLocaleString();
+  if (a >= 1000) return v.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return v.toLocaleString(undefined, { maximumFractionDigits: 4 });
+}
+function fmtRel(rel) { return rel == null ? "n/a" : ((rel * 100).toLocaleString(undefined, { maximumFractionDigits: 2 }) + "%"); }
+function unitSuffix(u) { return u ? ' <span class="kpi-unit">' + esc(u) + "</span>" : ""; }
+
+function decisionMessage(msg, kind) {
+  var el = document.getElementById("decision-message");
+  el.className = "alert alert-" + (kind || "info");
+  el.textContent = msg;
+  el.style.display = "block";
+}
+function hideDecisionSections() {
+  ["comparison-section","variance-section","impact-path-section","assumptions-section","why-section"]
+    .forEach(function(id){ var e = document.getElementById(id); if (e) e.hidden = true; });
+}
+
+async function initDecision() {
+  try {
+    decisionConfig = await API.get("/api/decision-config");
+  } catch { decisionConfig = {}; }
+
+  var kpiEl = document.getElementById("kpi-cards");
+  if (!decisionConfig || !decisionConfig.scenario_id) {
+    kpiEl.innerHTML = "";
+    document.getElementById("assumption-change-summary").innerHTML = "";
+    decisionMessage("No decision demo is loaded. Run the app on local SQLite to seed a baseline and scenario, then reload.", "info");
+    hideDecisionSections();
+    return;
+  }
+
+  // Resolve names/units from datasets + the port model map.
+  try {
+    var datasets = await API.get("/api/datasets");
+    dsById = {}; datasets.forEach(function(d){ dsById[d.id] = d; });
+  } catch {}
+  (decisionConfig.models || []).forEach(function(m){
+    outputDsToModel[m.output_dataset_id] = m.name;
+    portVersionIds.add(m.version_id);
+  });
+
+  await populateSelectors();
+  await loadComparison(decisionConfig.scenario_id);
+}
+
+async function populateSelectors() {
+  try {
+    var baselines = await API.get("/api/baselines");
+    var scenarios = await API.get("/api/scenarios");
+    var bSel = document.getElementById("baseline-select");
+    var sSel = document.getElementById("scenario-select");
+    window._d20_scenarios = scenarios;
+    bSel.innerHTML = baselines.map(function(b){
+      return '<option value="' + esc(b.id) + '"' + (b.id === decisionConfig.baseline_id ? " selected" : "") + '>' + esc(b.name) + "</option>";
+    }).join("");
+    fillScenarioSelect(decisionConfig.baseline_id, decisionConfig.scenario_id);
+    document.getElementById("decision-selectors").hidden = false;
+  } catch {}
+}
+function fillScenarioSelect(baselineId, selectId) {
+  var sSel = document.getElementById("scenario-select");
+  var list = (window._d20_scenarios || []).filter(function(s){ return s.baseline_id === baselineId; });
+  sSel.innerHTML = list.map(function(s){
+    return '<option value="' + esc(s.id) + '"' + (s.id === selectId ? " selected" : "") + '>' + esc(s.name) + "</option>";
+  }).join("");
+  return list.length ? (sSel.value || list[0].id) : null;
+}
+function onBaselineChange() {
+  var baselineId = document.getElementById("baseline-select").value;
+  var sid = fillScenarioSelect(baselineId, null);
+  if (sid) loadComparison(sid); else { decisionMessage("This baseline has no scenarios yet.", "info"); hideDecisionSections(); document.getElementById("kpi-cards").innerHTML=""; }
+}
+function onScenarioChange() { loadComparison(document.getElementById("scenario-select").value); }
+
+async function loadComparison(scenarioId) {
+  document.getElementById("decision-message").style.display = "none";
+  document.getElementById("kpi-cards").innerHTML = '<div class="loader">Loading comparison…</div>';
+  try {
+    var scenario = await API.get("/api/scenarios/" + scenarioId);
+    var baseline = await API.get("/api/baselines/" + scenario.baseline_id);
+    document.getElementById("decision-vs-label").innerHTML =
+      '<span class="vs-label"><span class="vs-pill base">' + esc(baseline.name) +
+      '</span> vs <span class="vs-pill scen">' + esc(scenario.name) + "</span></span>";
+
+    if (!baseline.baseline_run_id || !scenario.scenario_run_id) {
+      document.getElementById("kpi-cards").innerHTML = "";
+      decisionMessage("Baseline or scenario has not been executed yet, so there is nothing to compare.", "info");
+      hideDecisionSections();
+      return;
+    }
+    var overrides = await API.get("/api/scenarios/" + scenarioId + "/overrides");
+    var cmp = await API.get("/api/scenarios/" + scenarioId + "/comparison");
+
+    renderAssumptionSummary(overrides);
+    renderKpiCards(cmp, scenario);
+    renderComparisonTable(cmp);
+    renderVariance(cmp, overrides);
+    renderImpactPath(cmp, overrides);
+    await renderAssumptions(overrides);
+    document.getElementById("why-content").innerHTML =
+      '<p class="placeholder">Select a changed KPI’s “Why?” to trace its lineage in plain language.</p>';
+    document.getElementById("why-section").hidden = false;
+  } catch (e) {
+    document.getElementById("kpi-cards").innerHTML = "";
+    decisionMessage("Could not load comparison: " + e.message, "error");
+    hideDecisionSections();
+  }
+}
+
+function decisionMetrics(cmp) {
+  var outId = decisionConfig.decision_output_dataset_id;
+  var m = (cmp.metrics || []).filter(function(x){ return x.dataset_id === outId; });
+  return m.length ? m : (cmp.metrics || []);
+}
+function orderKpis(metrics) {
+  return metrics.slice().sort(function(a,b){
+    var ia = KPI_ORDER.indexOf(a.field), ib = KPI_ORDER.indexOf(b.field);
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
+}
+
+function renderAssumptionSummary(overrides) {
+  var el = document.getElementById("assumption-change-summary");
+  if (!overrides.length) {
+    el.innerHTML = '<div class="assumption-chip none"><span class="a-field">No assumption overrides</span></div>';
+    return;
+  }
+  el.innerHTML = overrides.map(function(o){
+    var base = assumptionBaseValue(o.dataset_id, o.field_name);
+    var scen = JSON.parse(o.value_json);
+    var unit = fieldUnit(o.dataset_id, o.field_name);
+    return '<div class="assumption-chip"><span class="a-field">' + esc(fieldLabel(o.field_name)) +
+      '</span><span class="a-vals">' + fmtNum(base) + " → " + fmtNum(scen) + "</span>" +
+      (unit ? '<span class="a-unit">' + esc(unit) + "</span>" : "") + "</div>";
+  }).join("");
+}
+
+function renderKpiCards(cmp, scenario) {
+  var el = document.getElementById("kpi-cards");
+  var metrics = orderKpis(decisionMetrics(cmp));
+  if (!metrics.length) { el.innerHTML = '<p class="placeholder">No comparable metrics.</p>'; return; }
+  el.innerHTML = metrics.map(function(m){
+    var changed = m.changed;
+    var deltaHtml = "";
+    if (m.kind === "numeric") {
+      if (changed) {
+        var arrow = m.direction === "increase" ? "▲" : (m.direction === "decrease" ? "▼" : "");
+        var sign = (m.absolute_delta > 0 ? "+" : "");
+        deltaHtml = '<div class="kpi-delta up">' + arrow + " " + sign + fmtNum(m.absolute_delta) +
+          '<span class="rel">' + (m.baseline_zero ? "(baseline 0)" : fmtRel(m.relative_delta)) + "</span></div>";
+      } else {
+        deltaHtml = '<div class="kpi-delta flat">no change</div>';
+      }
+    } else {
+      deltaHtml = '<div class="kpi-delta ' + (changed ? "up" : "flat") + '">' + (changed ? "changed" : "unchanged") + "</div>";
+    }
+    var whyBtn = changed ? '<div class="kpi-why"><button class="btn-link" onclick="showWhy(\'' +
+      esc(m.dataset_id) + "','" + esc(m.field) + '\')">Why?</button></div>' : "";
+    return '<div class="kpi-card ' + (changed ? "changed" : "") + '">' +
+      '<div class="kpi-head"><span class="kpi-label">' + esc(fieldLabel(m.field)) + "</span>" +
+      '<span class="cmp-state ' + (changed ? "changed" : "same") + '">' + (changed ? "changed" : "unchanged") + "</span></div>" +
+      '<div class="kpi-scenario">' + fmtNum(m.scenario) + unitSuffix(m.unit) + "</div>" +
+      '<div class="kpi-baseline">baseline: ' + fmtNum(m.baseline) + (m.unit ? " " + esc(m.unit) : "") + "</div>" +
+      deltaHtml + whyBtn + "</div>";
+  }).join("");
+}
+
+function renderComparisonTable(cmp) {
+  var section = document.getElementById("comparison-section");
+  var el = document.getElementById("comparison-content");
+  var groups = {};
+  (cmp.metrics || []).forEach(function(m){ (groups[m.dataset_id] = groups[m.dataset_id] || []).push(m); });
+  var ids = Object.keys(groups).sort(function(a,b){ return datasetLabel(a).localeCompare(datasetLabel(b)); });
+  if (!ids.length) { section.hidden = true; return; }
+  section.hidden = false;
+  el.innerHTML = ids.map(function(id){
+    var rows = groups[id].map(function(m){
+      var abs = "—", rel = "—";
+      if (m.kind === "numeric") {
+        abs = (m.absolute_delta > 0 ? "+" : "") + fmtNum(m.absolute_delta);
+        rel = m.baseline_zero ? '<span class="cmp-na">n/a (baseline 0)</span>' : fmtRel(m.relative_delta);
+      }
+      return '<tr class="' + (m.changed ? "changed" : "") + '"><td>' + esc(fieldLabel(m.field)) + "</td>" +
+        "<td>" + fmtNum(m.baseline) + "</td><td>" + fmtNum(m.scenario) + "</td>" +
+        "<td>" + abs + "</td><td>" + rel + "</td><td>" + esc(m.unit || "") + "</td>" +
+        '<td><span class="cmp-state ' + (m.changed ? "changed" : "same") + '">' + (m.changed ? "changed" : "unchanged") + "</span></td></tr>";
+    }).join("");
+    return '<div class="cmp-group"><p class="cmp-group-title">' + esc(datasetLabel(id)) + "</p>" +
+      '<table class="cmp-table"><thead><tr><th>Metric</th><th>Baseline</th><th>Scenario</th>' +
+      "<th>Δ abs</th><th>Δ rel</th><th>Unit</th><th>State</th></tr></thead><tbody>" +
+      rows + "</tbody></table></div>";
+  }).join("");
+}
+
+function renderVariance(cmp, overrides) {
+  var section = document.getElementById("variance-section");
+  var el = document.getElementById("variance-content");
+  var changed = decisionMetrics(cmp).filter(function(m){ return m.kind === "numeric" && m.changed; });
+  if (!changed.length) {
+    section.hidden = false;
+    el.innerHTML = '<p class="placeholder">No output values changed between baseline and scenario.</p>';
+    return;
+  }
+  section.hidden = false;
+  var singleDriver = overrides.length === 1 ? overrides[0] : null;
+  var html = changed.map(function(m){
+    var maxv = Math.max(Math.abs(m.baseline), Math.abs(m.scenario)) || 1;
+    var basePct = Math.min(100, Math.abs(m.baseline) / maxv * 100);
+    var scenPct = Math.min(100, Math.abs(m.scenario) / maxv * 100);
+    var block =
+      '<div class="varbar-row"><div class="varbar-label"><span class="name">' + esc(fieldLabel(m.field)) +
+        '</span><span>' + fmtNum(m.baseline) + " → " + fmtNum(m.scenario) + (m.unit ? " " + esc(m.unit) : "") + "</span></div>" +
+      '<div class="varbar-pair">' +
+        '<div class="varbar"><div class="fill-base" style="width:' + basePct + '%"></div></div>' +
+        '<div class="varbar"><div class="fill-scen" style="width:' + scenPct + '%"></div></div>' +
+      "</div>";
+    // Truthful single-driver bridge: with exactly one override, the whole delta is that driver.
+    if (singleDriver) {
+      var deltaPct = Math.min(100, Math.abs(m.absolute_delta) / maxv * 100);
+      var dir = m.absolute_delta >= 0 ? "seg-delta-up" : "seg-delta-down";
+      block += '<div class="varbar-single" title="baseline + change">' +
+        '<div class="seg-base" style="width:' + basePct + '%"></div>' +
+        '<div class="' + dir + '" style="width:' + deltaPct + '%"></div></div>' +
+        '<div class="bridge-caption">Attributable to ' + esc(fieldLabel(singleDriver.field_name)) +
+        " (" + fmtNum(assumptionBaseValue(singleDriver.dataset_id, singleDriver.field_name)) +
+        " → " + fmtNum(JSON.parse(singleDriver.value_json)) + ") — the only override in this scenario.</div>";
+    }
+    return block + "</div>";
+  }).join("");
+  el.innerHTML = html;
+}
+
+function renderImpactPath(cmp, overrides) {
+  var section = document.getElementById("impact-path-section");
+  var el = document.getElementById("impact-path-content");
+  var changedDs = new Set();
+  (cmp.metrics || []).forEach(function(m){ if (m.changed) changedDs.add(m.dataset_id); });
+  var models = decisionConfig.models || [];
+  if (!models.length) { section.hidden = true; return; }
+  section.hidden = false;
+
+  var html = '<div class="graph-container">';
+  // Leading assumption node(s).
+  var assumpChanged = overrides.length > 0;
+  html += '<div class="graph-node ' + (assumpChanged ? "changed" : "unchanged") + '">' +
+    '<div class="node-name">Assumptions</div>' +
+    '<div class="node-label">' + (assumpChanged ? (overrides.map(function(o){return fieldLabel(o.field_name);}).join(", ") + " changed") : "unchanged") + "</div></div>";
+  models.forEach(function(m){
+    var affected = changedDs.has(m.output_dataset_id);
+    html += '<div class="graph-edge"><svg width="40" height="24" viewBox="0 0 48 24" fill="none">' +
+      '<line x1="0" y1="12" x2="34" y2="12" stroke="currentColor" stroke-width="2"/>' +
+      '<polygon points="34,6 48,12 34,18" fill="currentColor"/></svg></div>';
+    html += '<div class="graph-node ' + (affected ? "affected" : "unchanged") + '">' +
+      '<div class="node-name">' + esc(m.name) + "</div>" +
+      '<div class="node-label">' + (affected ? "output changed" : "unchanged") + "</div></div>";
+  });
+  html += "</div>";
+  el.innerHTML = html;
+}
+
+function assumptionBaseValue(datasetId, field) {
+  var d = dsById[datasetId];
+  if (d && d.current_value && typeof d.current_value === "object") return d.current_value[field];
+  return null;
+}
+function fieldUnit(datasetId, field) {
+  var d = dsById[datasetId];
+  if (!d || !d.contract_fields) return null;
+  var f = d.contract_fields.find(function(cf){ return cf.name === field; });
+  return f ? f.unit : null;
+}
+
+async function renderAssumptions(overrides) {
+  var section = document.getElementById("assumptions-section");
+  var el = document.getElementById("assumptions-content");
+  section.hidden = false;
+  var assumpId = decisionConfig.assumptions_dataset_id;
+  // Ensure the assumptions dataset detail is loaded (for baseline/source values + units).
+  if (assumpId && !dsById[assumpId]) {
+    try { dsById[assumpId] = await API.get("/api/datasets/" + assumpId); } catch {}
+  }
+  var rows = overrides.map(function(o){
+    var base = assumptionBaseValue(o.dataset_id, o.field_name);
+    var scen = JSON.parse(o.value_json);
+    var unit = fieldUnit(o.dataset_id, o.field_name);
+    return '<div class="assump-row"><span class="assump-name">' + esc(fieldLabel(o.field_name)) +
+      ' <span class="assump-tag override">override</span></span>' +
+      '<span class="assump-vals">' + fmtNum(base) + " → " + fmtNum(scen) + "</span>" +
+      '<span class="assump-vals">' + esc(unit || "") + "</span></div>";
+  }).join("");
+
+  // Unchanged baseline/source assumptions for context.
+  var d = dsById[assumpId];
+  var overriddenFields = new Set(overrides.map(function(o){ return o.field_name; }));
+  var srcRows = "";
+  if (d && d.current_value && typeof d.current_value === "object") {
+    srcRows = Object.keys(d.current_value).filter(function(f){ return !overriddenFields.has(f); }).map(function(f){
+      return '<div class="assump-row"><span class="assump-name">' + esc(fieldLabel(f)) +
+        ' <span class="assump-tag source">baseline</span></span>' +
+        '<span class="assump-vals">' + fmtNum(d.current_value[f]) + "</span>" +
+        '<span class="assump-vals">' + esc(fieldUnit(assumpId, f) || "") + "</span></div>";
+    }).join("");
+  }
+
+  var note = "";
+  if (assumpId) {
+    try {
+      var events = await API.get("/api/datasets/" + assumpId + "/change-events");
+      if (events && events.length) {
+        var latest = events[0];
+        note = '<div class="assump-source-note">Baseline source: <strong>' + esc(latest.source_type || "unknown") +
+          "</strong>" + (latest.source_ref ? " (" + esc(latest.source_ref) + ")" : "") + ". Scenario overrides are applied in-memory only — the baseline dataset is never mutated.</div>";
+      }
+    } catch {}
+  }
+  el.innerHTML = (rows || '<p class="placeholder">No overrides.</p>') +
+    (srcRows ? '<div style="margin-top:12px">' + srcRows + "</div>" : "") + note;
+}
+
+async function scenarioResults(runId) {
+  if (!scenarioResultsCache[runId]) {
+    scenarioResultsCache[runId] = await API.get("/api/executions/" + runId + "/results");
+  }
+  return scenarioResultsCache[runId];
+}
+
+async function showWhy(datasetId, field) {
+  var el = document.getElementById("why-content");
+  el.innerHTML = '<div class="loader">Tracing lineage…</div>';
+  try {
+    var scenario = await API.get("/api/scenarios/" + document.getElementById("scenario-select").value);
+    var results = await scenarioResults(scenario.scenario_run_id);
+    var target = results.find(function(r){ return r.dataset_id === datasetId; });
+    if (!target) { el.innerHTML = '<p class="placeholder">No result found for this metric.</p>'; return; }
+    var lin = await API.get("/api/lineage/" + target.id);
+    var producing = datasetLabel(datasetId);
+    var steps = '<div class="why-step driver"><span class="why-role">Changed KPI</span>' +
+      '<span class="why-body"><strong>' + esc(fieldLabel(field)) + "</strong> in " + esc(producing) + "</span></div>";
+    var inputs = (lin.edges_to || []);
+    if (!inputs.length) {
+      steps += '<div class="why-step"><span class="why-role">Source</span><span class="why-body">Computed directly from ' + esc(producing) + " inputs.</span></div>";
+    } else {
+      var seen = {};
+      inputs.forEach(function(e){
+        var srcDs = e.source_dataset_id;
+        if (!srcDs || seen[srcDs]) return; seen[srcDs] = true;
+        var isAssump = (srcDs === decisionConfig.assumptions_dataset_id);
+        var note = "";
+        if (isAssump) {
+          note = " (includes the overridden assumption" + (decisionConfig.overrides && decisionConfig.overrides.length ? ": " +
+            decisionConfig.overrides.map(function(o){return fieldLabel(o.field_name);}).join(", ") : "") + ")";
+        }
+        steps += '<div class="why-step' + (isAssump ? " driver" : "") + '"><span class="why-role">Consumes</span>' +
+          '<span class="why-body">' + esc(datasetLabel(srcDs)) + esc(note) + "</span></div>";
+      });
+    }
+    el.innerHTML = '<div class="why-chain">' + steps + "</div>";
+  } catch (e) {
+    el.innerHTML = '<div class="alert alert-error">Lineage: ' + esc(e.message) + "</div>";
+  }
+}
+
+// ===========================================================================
+// D23 — Sources & Provenance · Execution history · Governance · nav scrollspy
+// ===========================================================================
+
+/* ══ D24 — build self-check ══════════════════════════════════════════════════
+   The reported /ui/governance 404 was not a routing bug: the browser had reached an
+   older server process that predated the route. The page now asks the server what it
+   can actually do and says so plainly when the answer is "less than this page needs",
+   instead of letting links fail silently. */
+
+var XL_MAPPING = "port_assumptions_v1";
+// Capabilities this page calls. Anything missing here means broken links/buttons.
+var REQUIRED_CAPABILITIES = [
+  "ui.governance", "ui.start_here", "decision.config", "decision.comparison",
+  "excel.template", "excel.validate", "excel.commit",
+  "governance.summary", "governance.exposed_outputs",
+];
+
+async function checkBuild() {
+  var banner = document.getElementById("stale-build-banner");
+  var badge = document.getElementById("build-badge");
+  var info;
+  try {
+    info = await API.get("/api/build-info");
+  } catch {
+    if (banner) {
+      banner.hidden = false;
+      banner.innerHTML =
+        "<strong>This server does not recognise /api/build-info.</strong>" +
+        "It is running a build older than D24. Stop every running server process and " +
+        "start one from the current checkout: <code>python scripts/serve.py</code>";
+    }
+    return;
+  }
+  if (badge) badge.textContent = info.phase + " · " + info.database;
+
+  var missing = REQUIRED_CAPABILITIES.filter(function (c) {
+    return info.capabilities && info.capabilities[c] === false;
+  });
+  if (!missing.length || !banner) return;
+
+  banner.hidden = false;
+  banner.innerHTML =
+    "<strong>You are connected to an older server build.</strong> " +
+    "This page needs features the server on this port does not serve: <code>" +
+    missing.map(esc).join("</code> <code>") + "</code>. " +
+    "That usually means an earlier server process is still bound to the port, so links " +
+    "such as Governance will return “Not Found”. Stop every running server and start one " +
+    "from the current checkout with <code>python scripts/serve.py</code>, which refuses " +
+    "to start when the port is already taken.";
+}
+
+/* ══ D24 — guided Excel workflow ═════════════════════════════════════════════ */
+
+var xlPreview = null;   // last dry-run result
+var xlFile = null;      // chosen File object
+
+function xlStep(n, state) {
+  var el = document.querySelector('.xl-step[data-step="' + n + '"]');
+  if (el) el.className = "xl-step" + (state ? " " + state : "");
+}
+
+function xlSetSteps(done, active) {
+  for (var i = 1; i <= 6; i++) {
+    xlStep(i, i <= done ? "done" : (i === active ? "active" : ""));
+  }
+}
+
+async function initExcelSection() {
+  xlSetSteps(0, 1);
+  var link = document.getElementById("xl-template-link");
+  if (link) link.href = "/api/ingestions/template?mapping=" + encodeURIComponent(XL_MAPPING);
+
+  var tableEl = document.getElementById("xl-mapping-table");
+  var descEl = document.getElementById("xl-mapping-desc");
+  var notesEl = document.getElementById("xl-notes");
+  try {
+    var m = await API.get("/api/ingestions/mappings/" + encodeURIComponent(XL_MAPPING) + "/preview");
+    if (descEl) descEl.textContent = m.description;
+    if (notesEl) {
+      notesEl.innerHTML = (m.notes || []).map(function (n) {
+        return "<li>" + esc(n) + "</li>";
+      }).join("");
+    }
+    if (tableEl) {
+      tableEl.innerHTML =
+        '<table class="xl-table"><thead><tr>' +
+        "<th>Source cell</th><th>Assumption</th><th>Unit</th>" +
+        "<th>Current value</th><th>Target dataset</th>" +
+        "</tr></thead><tbody>" +
+        (m.fields || []).map(function (f) {
+          return "<tr><td class=\"xl-cell-ref\">" + esc(f.worksheet) + "!" + esc(f.cell) +
+            "</td><td>" + esc(f.field) + "</td><td>" + esc(f.unit || "—") +
+            "</td><td>" + fmtNum(f.current_value) +
+            '</td><td class="xl-cell-ref">' + esc(f.dataset) + "</td></tr>";
+        }).join("") +
+        "</tbody></table>";
+    }
+  } catch (e) {
+    if (tableEl) {
+      tableEl.innerHTML = '<p class="placeholder">Cell mapping unavailable: ' +
+        esc(e.message) + "</p>";
+    }
+  }
+}
+
+function onExcelFileChosen() {
+  var input = document.getElementById("xl-file");
+  xlFile = input && input.files && input.files[0] ? input.files[0] : null;
+  xlPreview = null;
+  document.getElementById("xl-validate-btn").disabled = !xlFile;
+  document.getElementById("xl-commit-btn").disabled = true;
+  document.getElementById("xl-validate-result").innerHTML = "";
+  document.getElementById("xl-commit-panel").hidden = true;
+  xlSetSteps(xlFile ? 2 : 0, 3);
+}
+
+async function postWorkbook(path) {
+  var form = new FormData();
+  form.append("file", xlFile, xlFile.name);
+  var res = await fetch(path + "?mapping=" + encodeURIComponent(XL_MAPPING),
+                        { method: "POST", body: form });
+  var text = await res.text();
+  var data;
+  try { data = JSON.parse(text); } catch { data = null; }
+  if (!res.ok) {
+    throw new Error((data && data.detail) ? data.detail : (res.status + ": " + text));
+  }
+  return data;
+}
+
+async function validateWorkbook() {
+  if (!xlFile) return;
+  var out = document.getElementById("xl-validate-result");
+  var btn = document.getElementById("xl-validate-btn");
+  btn.disabled = true;
+  out.innerHTML = '<div class="loader">Reading workbook… nothing is being written.</div>';
+  try {
+    xlPreview = await postWorkbook("/api/ingestions/excel/validate");
+  } catch (e) {
+    out.innerHTML = '<div class="alert alert-error">Validation failed: ' + esc(e.message) + "</div>";
+    btn.disabled = false;
+    return;
+  }
+  btn.disabled = false;
+  renderExcelPreview(xlPreview);
+  var canCommit = xlPreview.valid && xlPreview.would_change;
+  document.getElementById("xl-commit-btn").disabled = !xlPreview.valid;
+  xlSetSteps(xlPreview.valid ? 4 : 2, xlPreview.valid ? 5 : 3);
+  if (!canCommit) return;
+}
+
+function renderExcelPreview(p) {
+  var out = document.getElementById("xl-validate-result");
+  var head = p.valid
+    ? '<div class="alert alert-ok"><strong>Valid.</strong> ' +
+      (p.would_change
+        ? p.changed_fields.length + " field(s) would change: <strong>" +
+          p.changed_fields.map(esc).join(", ") + "</strong>. Nothing has been written yet."
+        : "This workbook matches the values already held, so committing it would be a no-op.") +
+      "</div>"
+    : '<div class="alert alert-error"><strong>Not valid — commit would be rejected.</strong> ' +
+      (p.errors.length ? p.errors.map(esc).join(" ") : "See the rows marked below.") + "</div>";
+
+  var rows = (p.fields || []).map(function (f) {
+    var cls = !f.valid ? "invalid" : (f.changed ? "changed" : "");
+    return '<tr class="' + cls + '"><td class="xl-cell-ref">' +
+      esc(f.worksheet) + "!" + esc(f.cell) + "</td><td>" + esc(f.field) +
+      "</td><td>" + esc(f.unit || "—") + "</td><td>" + fmtNum(f.current_value) + "</td><td>" +
+      (f.changed ? '<span class="xl-arrow">→</span> ' : "") + fmtNum(f.new_value) +
+      "</td><td>" + (f.valid ? (f.changed ? "changed" : "unchanged") : esc(f.message || "invalid")) +
+      "</td></tr>";
+  }).join("");
+
+  out.innerHTML = head +
+    '<table class="xl-table"><thead><tr>' +
+    "<th>Source cell</th><th>Assumption</th><th>Unit</th><th>Current</th>" +
+    "<th>In workbook</th><th>Status</th></tr></thead><tbody>" + rows + "</tbody></table>" +
+    '<p class="xl-hint">Workbook fingerprint <code>sha256:' +
+    esc(String(p.content_sha256).slice(0, 16)) + "…</code> — recorded as provenance if you commit.</p>";
+}
+
+async function commitWorkbook() {
+  if (!xlFile) return;
+  var btn = document.getElementById("xl-commit-btn");
+  var panel = document.getElementById("xl-commit-panel");
+  var out = document.getElementById("xl-commit-result");
+  btn.disabled = true;
+  panel.hidden = false;
+  out.innerHTML = '<div class="loader">Writing values, detecting change, propagating…</div>';
+
+  var r;
+  try {
+    r = await postWorkbook("/api/ingestions/excel");
+  } catch (e) {
+    out.innerHTML = '<div class="alert alert-error">Ingestion failed: ' + esc(e.message) + "</div>";
+    return;
+  }
+
+  if (r.status === "rejected") {
+    out.innerHTML = '<div class="alert alert-error"><strong>Rejected.</strong> ' +
+      esc(r.error || "") + " The rejection is recorded as ingestion <code>" +
+      esc(r.ingestion_id) + "</code>; no dataset value was written.</div>";
+    xlSetSteps(4, 5);
+    return;
+  }
+
+  var changedList = (xlPreview && xlPreview.changed_fields) || [];
+  var chain = [
+    "<strong>Workbook read</strong> — " + esc(r.source_name) +
+      ", fingerprint <code>sha256:" + esc(String(r.content_sha256).slice(0, 16)) + "…</code>",
+    "<strong>Ingestion recorded</strong> — <code>" + esc(r.ingestion_id) +
+      "</code>, status <strong>" + esc(r.status) + "</strong>",
+  ];
+  if (r.changed) {
+    chain.push("<strong>Change detected</strong> — " +
+      (changedList.length ? changedList.map(esc).join(", ") : "assumption values differ") +
+      " (change event <code>" + esc(String(r.change_event_id).slice(0, 8)) + "</code>)");
+    chain.push("<strong>Propagated</strong> — every dependent model re-executed in graph run <code>" +
+      esc(String(r.graph_run_id).slice(0, 8)) + "</code>");
+    chain.push("<strong>Results published</strong> — the KPIs in Decision Overview and " +
+      "Comparison below now reflect this workbook");
+  } else {
+    chain.push("<strong>No change</strong> — the values matched what was already held, so " +
+      "nothing was propagated and no models re-ran. The ingestion is still recorded.");
+  }
+
+  out.innerHTML =
+    '<div class="alert ' + (r.changed ? "alert-ok" : "alert-info") + '">' +
+    (r.changed
+      ? "<strong>Committed and propagated.</strong> The change travelled the whole chain:"
+      : "<strong>Committed — nothing changed.</strong>") + "</div>" +
+    '<ul class="xl-chain">' + chain.map(function (c) { return "<li>" + c + "</li>"; }).join("") + "</ul>" +
+    '<p class="xl-hint">Sources &amp; Provenance below now lists this ingestion. ' +
+    "Execution shows the graph run it triggered.</p>";
+
+  xlSetSteps(6, 0);
+  // Refresh the panels that this ingestion just changed.
+  await Promise.allSettled([
+    renderSourcesSection(),
+    renderExecutionHistory(),
+    initExcelSection(),
+  ]);
+}
+
+async function initD23Sections() {
+  // Independent, best-effort: each renders its own loading/empty/error state.
+  await Promise.allSettled([
+    renderSourcesSection(),
+    renderExecutionHistory(),
+    renderGovernancePanel(),
+    initExcelSection(),
+  ]);
+}
+
+async function renderSourcesSection() {
+  var el = document.getElementById("sources-content");
+  if (!el) return;
+  el.innerHTML = '<div class="loader">Loading sources…</div>';
+  try {
+    var ingestions = [];
+    try { ingestions = await API.get("/api/ingestions?limit=10"); } catch {}
+
+    var cards = "";
+    if (ingestions && ingestions.length) {
+      cards = ingestions.map(function (g) {
+        return '<div class="source-card">' +
+          '<div class="source-head"><span class="source-name">' + esc(g.source_name) + "</span>" +
+          statusBadge(g.status) + "</div>" +
+          '<div class="source-meta"><span>Mapping: <strong>' + esc(prettify(g.mapping_key)) + "</strong></span>" +
+          "<span>Ingested: " + fmtDate(g.created_at) + "</span></div>" +
+          (g.error ? '<div class="source-sub" style="color:var(--error)">' + esc(g.error) + "</div>" : "") +
+          (g.graph_run_id ? '<div class="source-sub">Triggered execution ' + shortId(g.graph_run_id) + "</div>" : "") +
+          "</div>";
+      }).join("");
+    }
+
+    // Real baseline provenance: change-events on the assumptions dataset (no fabrication).
+    var provRows = "";
+    var assumpId = decisionConfig && decisionConfig.assumptions_dataset_id;
+    if (assumpId) {
+      try {
+        var events = await API.get("/api/datasets/" + assumpId + "/change-events");
+        if (events && events.length) {
+          provRows = events.slice(0, 5).map(function (ev) {
+            return '<div class="prov-row"><span class="prov-src">' + esc(prettify(ev.source_type || "unknown")) + "</span>" +
+              '<span class="prov-ref">' + esc(ev.source_ref || "—") + "</span>" +
+              '<span class="prov-time">' + fmtDate(ev.created_at) + "</span></div>";
+          }).join("");
+        }
+      } catch {}
+    }
+
+    var html = '<div class="sub-block"><div class="panel-title">Ingested workbooks</div>' +
+      (cards || '<p class="placeholder">No external workbooks ingested. The baseline assumptions are seeded values, not Excel-sourced.</p>') +
+      "</div>";
+    if (provRows) {
+      html += '<div class="sub-block"><div class="panel-title">Baseline assumption provenance</div>' +
+        '<div class="prov-head"><span>Source</span><span>Reference</span><span>When</span></div>' +
+        provRows + "</div>";
+    } else if (assumpId) {
+      html += '<div class="sub-block"><p class="placeholder">No source history recorded for the baseline assumptions.</p></div>';
+    }
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = '<div class="alert alert-error">Could not load sources: ' + esc(e.message) + "</div>";
+  }
+}
+
+async function runContextMap() {
+  // Map GraphRun id → human context (Baseline / Scenario name) using real records.
+  var map = {};
+  try {
+    (await API.get("/api/baselines")).forEach(function (b) {
+      if (b.baseline_run_id) map[b.baseline_run_id] = { kind: "Baseline", name: b.name };
+    });
+  } catch {}
+  try {
+    (await API.get("/api/scenarios")).forEach(function (s) {
+      if (s.scenario_run_id) map[s.scenario_run_id] = { kind: "Scenario", name: s.name };
+    });
+  } catch {}
+  return map;
+}
+
+async function renderExecutionHistory() {
+  var el = document.getElementById("exec-readable-content");
+  if (!el) return;
+  el.innerHTML = '<div class="loader">Loading executions…</div>';
+  try {
+    var runs = await API.get("/api/executions?limit=12");
+    if (!runs || !runs.length) {
+      el.innerHTML = '<p class="placeholder">No executions have run yet.</p>';
+      return;
+    }
+    var ctxMap = await runContextMap();
+    el.innerHTML = runs.map(function (r) {
+      var ctx = ctxMap[r.id];
+      var label = ctx ? (ctx.kind + ": " + ctx.name)
+        : (prettify(r.run_kind || "run") + (r.scenario_id ? " (scenario)" : " execution"));
+      var when = fmtDate(r.finished_at || r.started_at || r.created_at);
+      var exec = r.executor === "airflow" ? "Airflow (external)" : "In-process";
+      var st = (r.status || "").toLowerCase();
+      return '<div class="exec-card ' + esc(st) + '">' +
+        '<div class="exec-main"><span class="exec-context">' + esc(label) + "</span>" +
+        statusBadge(r.status) + "</div>" +
+        '<div class="exec-meta"><span>' + esc(exec) + "</span><span>" + when + "</span>" +
+        (r.error_message ? '<span class="exec-err">' + esc(r.error_message) + "</span>" : "") + "</div>" +
+        '<details class="exec-tech"><summary>Technical detail</summary>' +
+        '<div class="tech-kv">Run ID: <code>' + esc(r.id) + "</code></div>" +
+        (r.target_version_id ? '<div class="tech-kv">Target version: <code>' + esc(r.target_version_id) + "</code></div>" : "") +
+        "</details></div>";
+    }).join("");
+  } catch (e) {
+    el.innerHTML = '<div class="alert alert-error">Could not load executions: ' + esc(e.message) + "</div>";
+  }
+}
+
+function govStat(n, label) {
+  return '<div class="gov-stat"><div class="gov-n">' + (n == null ? "—" : n) +
+    '</div><div class="gov-l">' + esc(label) + "</div></div>";
+}
+
+async function renderGovernancePanel() {
+  var el = document.getElementById("governance-panel-content");
+  if (!el) return;
+  el.innerHTML = '<div class="loader">Loading governance…</div>';
+  try {
+    var summary = {};
+    try { summary = await API.get("/api/governance/summary"); } catch {}
+    var exposed = [];
+    try { exposed = await API.get("/api/exposed-outputs"); } catch {}
+
+    var stats = '<div class="gov-stats">' +
+      govStat(summary.participants, "Participants") +
+      govStat(summary.effective_approvals, "Approved outputs") +
+      govStat((exposed || []).length, "Exposed fields") + "</div>";
+
+    var body;
+    if (exposed && exposed.length) {
+      body = '<div class="gov-list">' + exposed.slice(0, 8).map(function (e) {
+        return '<div class="gov-row"><span class="gov-party">' + esc(e.participant_key) + "</span>" +
+          '<span class="gov-field">' + esc(fieldLabel(e.field_name)) +
+          ' <span class="muted">in ' + esc(prettify(e.dataset_name)) + "</span></span>" +
+          '<span class="gov-exp">' + (e.expires_at ? "expires " + fmtDate(e.expires_at) : "no expiry") +
+          "</span></div>";
+      }).join("") + "</div>";
+    } else {
+      body = '<p class="placeholder">No outputs are approved for external exposure yet. ' +
+        "Scenario outputs are never auto-approved.</p>";
+    }
+    el.innerHTML = stats + body +
+      '<div class="gov-link"><a href="/ui/governance">Open full governance view →</a></div>';
+  } catch (e) {
+    el.innerHTML = '<div class="alert alert-error">Could not load governance: ' + esc(e.message) + "</div>";
+  }
+}
+
+// Nav scrollspy — highlight the section currently in view.
+(function initScrollSpy() {
+  var items = Array.prototype.slice.call(document.querySelectorAll(".pnav-item"));
+  if (!items.length || !("IntersectionObserver" in window)) return;
+  var byId = {};
+  items.forEach(function (a) { byId[a.getAttribute("data-target")] = a; });
+  var obs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) {
+      var a = byId[en.target.id];
+      if (a && en.isIntersecting) {
+        items.forEach(function (x) { x.classList.remove("active"); });
+        a.classList.add("active");
+      }
+    });
+  }, { rootMargin: "-40% 0px -55% 0px" });
+  Object.keys(byId).forEach(function (id) {
+    var sec = document.getElementById(id);
+    if (sec) obs.observe(sec);
+  });
+})();
+
+initDecision().then(initD23Sections).catch(function () { initD23Sections(); });
+</script>
+</body>
+</html>

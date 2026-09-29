@@ -1,23 +1,15 @@
 """
-SQLAlchemy persistence layer — D0 scope.
+SQLAlchemy persistence layer.
 
 Defines:
-  - engine / SessionLocal factory
+  - engine / SessionLocal factory (SQLite or PostgreSQL)
   - Base declarative class
-  - init_db()  — creates all tables (SQLite, demo tier)
+  - init_db()  — creates all tables
   - get_db()   — FastAPI dependency that yields a session
 
-All 12 core entities from §77/§138 are declared here so that
-init_db() creates the full schema in one call. Later phases
-will add Alembic migrations; until then, create_all() is the
-source of truth for the demo.
-
-Entities (demo-minimal — I/O and contracts as JSON columns):
-  Model, ModelVersion, Dataset, DataContract, Dependency,
-  ExecutionRun, ExecutionStep, Result, LineageEdge, ChangeEvent
-
-Two more (ModelInput, ModelOutput) are represented as JSON
-columns on ModelVersion per §138 "demo-minimal" note.
+Entities:
+  Model, ModelVersion, ModelIOBinding, Dataset, DataContract, Dependency,
+  ExecutionRun (the GraphRun), ExecutionStep, Result, LineageEdge, ChangeEvent
 """
 
 from __future__ import annotations
@@ -31,12 +23,14 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
     create_engine,
     event,
+    text,
 )
 from sqlalchemy.orm import (
     DeclarativeBase,
@@ -54,25 +48,35 @@ from backend.app.config.settings import DATABASE_URL
 # Engine & session factory
 # ---------------------------------------------------------------------------
 
-# SQLite: enable WAL mode and foreign-key enforcement
-_connect_args: dict = {}
-if DATABASE_URL.startswith("sqlite"):
-    _connect_args = {"check_same_thread": False}
+def _is_sqlite(url: str) -> bool:
+    return url.startswith("sqlite")
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args=_connect_args,
-    echo=False,  # set to True for SQL debug logging
-)
 
-if DATABASE_URL.startswith("sqlite"):
-    @event.listens_for(engine, "connect")
-    def _set_sqlite_pragmas(dbapi_conn, _connection_record):  # type: ignore[no-untyped-def]
-        cursor = dbapi_conn.cursor()
-        cursor.execute("PRAGMA journal_mode=WAL")
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
+def _build_engine(url: str):
+    kwargs: dict = {"echo": False}
 
+    if _is_sqlite(url):
+        kwargs["connect_args"] = {"check_same_thread": False}
+    else:
+        kwargs["pool_size"] = 5
+        kwargs["max_overflow"] = 10
+        kwargs["pool_pre_ping"] = True
+        kwargs["connect_args"] = {"prepare_threshold": None}
+
+    eng = create_engine(url, **kwargs)
+
+    if _is_sqlite(url):
+        @event.listens_for(eng, "connect")
+        def _set_sqlite_pragmas(dbapi_conn, _connection_record):  # type: ignore[no-untyped-def]
+            cursor = dbapi_conn.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+
+    return eng
+
+
+engine = _build_engine(DATABASE_URL)
 
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
@@ -148,12 +152,55 @@ class ModelVersion(Base):
     outputs_spec: Mapped[str | None] = mapped_column(Text, nullable=True)
     # For PythonAdapter: dotted module path of the callable
     execution_entrypoint: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # Persisted execution behaviour: adapter kind + JSON config (e.g. {"scalar": 2.0})
+    adapter_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    adapter_config: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # D22: optional owning federation participant (additive, nullable; SET NULL on delete).
+    owner_participant_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("participant.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     model: Mapped["Model"] = relationship("Model", back_populates="versions")
     steps: Mapped[list["ExecutionStep"]] = relationship(
         "ExecutionStep", back_populates="model_version"
+    )
+    io_bindings: Mapped[list["ModelIOBinding"]] = relationship(
+        "ModelIOBinding", back_populates="model_version", cascade="all, delete-orphan"
+    )
+
+
+class ModelIOBinding(Base):
+    """
+    Explicit declaration that a model version reads (input) or writes (output) a dataset.
+
+    field_map (JSON, optional):
+      input  → {"<dataset_field>": "<model_input_name>"}  (only mapped fields are passed)
+      output → {"<model_output_name>": "<dataset_field>"} (only mapped outputs are written)
+      NULL   → identity mapping of every field.
+    """
+
+    __tablename__ = "model_io_binding"
+    __table_args__ = (
+        UniqueConstraint(
+            "model_version_id", "dataset_id", "direction", name="uq_io_binding"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    model_version_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("model_version.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    dataset_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("dataset.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    direction: Mapped[str] = mapped_column(String(8), nullable=False)  # "input" | "output"
+    field_map: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    model_version: Mapped["ModelVersion"] = relationship(
+        "ModelVersion", back_populates="io_bindings"
     )
 
 
@@ -172,6 +219,10 @@ class Dataset(Base):
     current_value: Mapped[str | None] = mapped_column(Text, nullable=True)
     # SHA-256 hash of current_value for change detection
     current_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # D22: optional owning federation participant (additive, nullable; SET NULL on delete).
+    owner_participant_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("participant.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now, onupdate=_now
@@ -270,13 +321,22 @@ class Dependency(Base):
 
 class ExecutionRun(Base):
     """
-    One orchestrated execution of a (sub)graph (§77/§137).
-    Status lifecycle: requested → validating → running → succeeded/failed/partial
+    The GraphRun: one orchestrated execution of a (sub)graph (§77/§137).
+    A graph execution is exactly one run whose ExecutionSteps are its model steps.
+    run_kind: "graph" | "single" | "legacy" (pre-D16 one-run-per-model rows)
+    Status lifecycle: running → succeeded | failed
     """
 
     __tablename__ = "execution_run"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    run_kind: Mapped[str] = mapped_column(String(16), nullable=False, default="graph")
+    executor: Mapped[str] = mapped_column(String(32), nullable=False, default="in_process")
+    target_version_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("model_version.id", ondelete="SET NULL"), nullable=True
+    )
+    trigger_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     scenario_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     # JSON-encoded list of model_version_ids in execution order
     subgraph_json: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -298,7 +358,7 @@ class ExecutionRun(Base):
         "ExecutionStep", back_populates="run", cascade="all, delete-orphan"
     )
     change_events: Mapped[list["ChangeEvent"]] = relationship(
-        "ChangeEvent", back_populates="run"
+        "ChangeEvent", back_populates="run", foreign_keys="ChangeEvent.run_id"
     )
 
 
@@ -405,6 +465,16 @@ class LineageEdge(Base):
     target_result_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("result.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    source_dataset_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("dataset.id", ondelete="SET NULL"), nullable=True
+    )
+    target_dataset_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("dataset.id", ondelete="SET NULL"), nullable=True
+    )
+    # Set when the input value originated outside this run (external write or earlier run)
+    source_change_event_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("change_event.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     step: Mapped["ExecutionStep"] = relationship("ExecutionStep", back_populates="lineage_edges")
@@ -415,7 +485,11 @@ class LineageEdge(Base):
 
 class ChangeEvent(Base):
     """
-    Records an upstream input change that triggered a propagation run (§77/§138).
+    Records a change to a dataset value, or a model re-execution trigger (§77/§138).
+
+    source_type: "external" | "seed" | "model_output" | "model_trigger"
+    run_id:             run in which this change was propagated (NULL = not yet propagated)
+    produced_by_run_id: run that wrote the value (model_output only)
     """
 
     __tablename__ = "change_event"
@@ -426,6 +500,18 @@ class ChangeEvent(Base):
     )
     run_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("execution_run.id", ondelete="SET NULL"), nullable=True
+    )
+    source_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # Free-form provenance reference (e.g. "api", later "excel:<file>!<sheet>!<cell>")
+    source_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_version_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("model_version.id", ondelete="SET NULL"), nullable=True
+    )
+    produced_by_run_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("execution_run.id", ondelete="SET NULL"), nullable=True
+    )
+    result_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("result.id", ondelete="SET NULL"), nullable=True
     )
     # JSON-encoded old value
     old_value_json: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -440,8 +526,234 @@ class ChangeEvent(Base):
 
     dataset: Mapped["Dataset"] = relationship("Dataset", back_populates="change_events")
     run: Mapped["ExecutionRun | None"] = relationship(
-        "ExecutionRun", back_populates="change_events"
+        "ExecutionRun", back_populates="change_events", foreign_keys=[run_id]
     )
+
+
+class IngestionRun(Base):
+    """
+    Durable record of one Excel (or future source) ingestion attempt — D18.
+
+    Persisted for every attempt, including rejected ones (a rejected ingestion writes no
+    dataset value and therefore produces no ChangeEvent, so failure metadata has no other
+    home). content_sha256 is the authoritative content identity of the uploaded bytes.
+
+    status: received → parsed → ingested | unchanged | rejected
+    """
+
+    __tablename__ = "ingestion_run"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    source_name: Mapped[str] = mapped_column(String(512), nullable=False)
+    content_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    mapping_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="received")
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # JSON-encoded list of dataset IDs written by this ingestion
+    dataset_ids_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    change_event_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("change_event.id", ondelete="SET NULL"), nullable=True
+    )
+    graph_run_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("execution_run.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, index=True
+    )
+
+
+class Baseline(Base):
+    """
+    Named, persisted baseline — an authoritative input-state identity for the federation (D19).
+
+    A baseline is metadata plus a pointer to the exact authoritative GraphRun
+    (baseline_run_id). It is kept deliberately distinct from dataset values (which live on
+    Dataset.current_value) and from execution/results. Executing a baseline is an ordinary
+    GraphRun that publishes normally; the produced run is pinned here for exact comparison.
+    """
+
+    __tablename__ = "baseline"
+    __table_args__ = (
+        UniqueConstraint("name", name="uq_baseline_name"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Lifecycle: active → archived
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    target_version_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("model_version.id", ondelete="SET NULL"), nullable=True
+    )
+    # The exact authoritative GraphRun (set once the baseline is executed).
+    baseline_run_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("execution_run.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, onupdate=_now
+    )
+
+    scenarios: Mapped[list["Scenario"]] = relationship(
+        "Scenario", back_populates="baseline", cascade="all, delete-orphan"
+    )
+
+
+class Scenario(Base):
+    """
+    Named scenario derived from a baseline (D19).
+
+    A scenario is an input-state definition plus metadata: the baseline it inherits from,
+    a set of explicit field overrides (ScenarioOverride), and — once executed — a pointer to
+    its exact GraphRun (scenario_run_id). A scenario never overwrites its baseline; its run
+    is read-only with respect to shared dataset state (executed with publish suppressed).
+    """
+
+    __tablename__ = "scenario"
+    __table_args__ = (
+        UniqueConstraint("baseline_id", "name", name="uq_scenario_baseline_name"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    baseline_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("baseline.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Lifecycle: draft → executed → archived
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft")
+    # Optional per-scenario target; falls back to the baseline's target when null.
+    target_version_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("model_version.id", ondelete="SET NULL"), nullable=True
+    )
+    # The exact scenario GraphRun (set once the scenario is executed).
+    scenario_run_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("execution_run.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, onupdate=_now
+    )
+
+    baseline: Mapped["Baseline"] = relationship("Baseline", back_populates="scenarios")
+    overrides: Mapped[list["ScenarioOverride"]] = relationship(
+        "ScenarioOverride", back_populates="scenario", cascade="all, delete-orphan"
+    )
+
+
+class ScenarioOverride(Base):
+    """
+    One explicit, typed dataset-field override for a scenario (D19).
+
+    Generic against datasets/contracts: keyed by (dataset_id, field_name); the value is
+    stored as canonical JSON. Not specific to any domain field. Applied at input-assembly
+    time only — it never mutates Dataset.current_value.
+    """
+
+    __tablename__ = "scenario_override"
+    __table_args__ = (
+        UniqueConstraint(
+            "scenario_id", "dataset_id", "field_name", name="uq_scenario_override"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    scenario_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("scenario.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    dataset_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("dataset.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    field_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # JSON-encoded scalar/structured override value for the field.
+    value_json: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    scenario: Mapped["Scenario"] = relationship("Scenario", back_populates="overrides")
+
+
+class Participant(Base):
+    """A federation actor — governance metadata, NOT an application user (D22).
+
+    Participants describe who contributes to / owns parts of the federation and who has
+    approved specific outputs for external exposure. There is no authentication, credential,
+    password, or access-control semantics here: registering a participant does NOT grant
+    access or imply that anything they own is shareable. The platform stays authoritative for
+    models, datasets, contracts, GraphRuns, results, lineage, scenarios and provenance.
+
+    status: "active" | "inactive". metadata is free-form JSON (mapped as meta_json; the DB
+    column is "metadata_json" to avoid SQLAlchemy's reserved 'metadata' attribute).
+    """
+
+    __tablename__ = "participant"
+    __table_args__ = (
+        UniqueConstraint("participant_key", name="uq_participant_key"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    participant_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active", index=True)
+    meta_json: Mapped[str | None] = mapped_column("metadata_json", Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, onupdate=_now
+    )
+
+    approved_outputs: Mapped[list["ApprovedOutput"]] = relationship(
+        "ApprovedOutput", back_populates="participant", cascade="all, delete-orphan"
+    )
+
+
+class ApprovedOutput(Base):
+    """A participant's explicit approval of one dataset field for external/output exposure (D22).
+
+    This is governance metadata describing what a participant approved for exposure; it does
+    not itself expose anything. A partial unique index enforces at most one ACTIVE approval
+    per (participant, dataset, field), while allowing re-approval after a revoke. Expiry
+    (expires_at) is validated at check time (an expired row stays 'active' in the DB but is
+    treated as not-approved), never by a DB constraint.
+
+    status: "active" | "revoked".
+    """
+
+    __tablename__ = "approved_output"
+    __table_args__ = (
+        # At most one ACTIVE approval per (participant, dataset, field). Revoked rows are
+        # excluded, so re-approval after revoke is allowed. Works on SQLite and PostgreSQL.
+        Index(
+            "uq_approved_output_active",
+            "participant_id", "dataset_id", "field_name",
+            unique=True,
+            sqlite_where=text("status = 'active'"),
+            postgresql_where=text("status = 'active'"),
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    participant_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("participant.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    dataset_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("dataset.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    field_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    purpose: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active", index=True)
+    approved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    meta_json: Mapped[str | None] = mapped_column("metadata_json", Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, onupdate=_now
+    )
+
+    participant: Mapped["Participant"] = relationship(
+        "Participant", back_populates="approved_outputs"
+    )
+    dataset: Mapped["Dataset"] = relationship("Dataset")
 
 
 # ---------------------------------------------------------------------------
@@ -461,7 +773,8 @@ def init_db() -> None:
 
 def get_db() -> Generator[Session, None, None]:
     """
-    FastAPI dependency — yields a SQLAlchemy Session and closes it afterward.
+    FastAPI dependency — yields a SQLAlchemy Session, commits on success,
+    rolls back on exception, and closes afterward.
 
     Usage:
         @router.get("/something")
@@ -471,5 +784,9 @@ def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
         yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()

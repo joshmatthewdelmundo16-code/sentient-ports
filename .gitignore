@@ -39,3 +39,15 @@ build/
 # OS
 Thumbs.db
 .DS_Store
+
+# SQLite WAL sidecars
+*.db-shm
+*.db-wal
+*.db-journal
+
+# Frontend toolchain / build output
+node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/test-results/
+frontend/playwright-report/

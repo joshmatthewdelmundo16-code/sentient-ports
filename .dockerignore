@@ -1,0 +1,38 @@
+# Keep secrets, local state and build noise out of the image.
+# .env is the important one: the image must take its configuration from the environment
+# at run time, never from a file baked in at build time.
+.env
+.env.*
+!.env.example
+
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Local developer database and artifacts — never ship these.
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+storage/
+storage_test_tmp/
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+.git/
+.gitignore
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

@@ -1,0 +1,61 @@
+"""Alembic environment configuration.
+
+Reads DATABASE_URL from the application settings (which reads from
+environment variables / .env). Imports the ORM Base so autogenerate
+can diff against the live model metadata.
+"""
+from __future__ import annotations
+
+from logging.config import fileConfig
+
+from alembic import context
+from sqlalchemy import engine_from_config, pool
+
+from backend.app.config.settings import DATABASE_URL
+from backend.app.persistence.database import Base
+
+config = context.config
+
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+# Programmatic callers (e.g. migration tests) may pass an explicit URL via attributes.
+config.set_main_option("sqlalchemy.url", config.attributes.get("sqlalchemy_url") or DATABASE_URL)
+
+target_metadata = Base.metadata
+
+
+def run_migrations_offline() -> None:
+    """Run migrations in 'offline' mode — emit SQL to stdout."""
+    url = config.get_main_option("sqlalchemy.url")
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def run_migrations_online() -> None:
+    """Run migrations against a live database connection."""
+    url = config.get_main_option("sqlalchemy.url") or ""
+    # PgBouncer/Supavisor transaction pooling cannot use server-side prepared statements.
+    connect_args = {"prepare_threshold": None} if url.startswith("postgresql") else {}
+    connectable = engine_from_config(
+        config.get_section(config.config_ini_section, {}),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+        connect_args=connect_args,
+    )
+    with connectable.connect() as connection:
+        context.configure(connection=connection, target_metadata=target_metadata)
+        with context.begin_transaction():
+            context.run_migrations()
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()
