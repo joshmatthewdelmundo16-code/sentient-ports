@@ -16,11 +16,12 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import text
 
 from backend.app.buildinfo import build_info, missing_capabilities
+from backend.app.config import settings
 from backend.app.config.settings import (
     APP_NAME,
     APP_PHASE,
@@ -48,6 +49,10 @@ from backend.app.api.routers import (
     results,
     scenarios,
 )
+from backend.app.api.routers import auth as auth_routes
+from backend.app.security.auth import AuthConfigError, effective_auth_mode, request_context
+from backend.app.security.middleware import SecurityMiddleware
+from backend.app.security.tenancy import TenantViolation
 from backend.app.ui.router import router as ui_router
 from backend.app.web import mount_frontend, readiness
 
@@ -85,6 +90,11 @@ def on_startup() -> None:
     import logging
     log = logging.getLogger(__name__)
 
+    # D26: refuse to start with an unsafe authentication configuration (e.g. AUTH_MODE=local
+    # against a shared database or in production) rather than serve it.
+    mode = effective_auth_mode()
+    log.info("Authentication mode: %s.", mode)
+
     if AUTO_CREATE_SCHEMA:
         init_db()
     else:
@@ -93,7 +103,9 @@ def on_startup() -> None:
             "run `alembic upgrade head` to manage this database's schema."
         )
 
-    if DEMO_SEED_ENABLED:
+    if DEMO_SEED_ENABLED and settings.DEMO_NETWORK_SEED:
+        _seed_network()
+    elif DEMO_SEED_ENABLED:
         _seed_demo()
         _seed_decision()
         _seed_governance()
@@ -110,6 +122,37 @@ def on_startup() -> None:
         "Platform startup complete — %s %s (%s), environment=%s.",
         APP_NAME, APP_VERSION, APP_PHASE, ENVIRONMENT,
     )
+
+
+def _seed_network() -> None:
+    """D26: the synthetic multi-port network (SQLite only, non-fatal, idempotent).
+
+    Places the D0–D16 fuel chain in an "Engine sandbox" organization and the D17/D20 port
+    demo in each port's own private zone, then points the legacy pages' demo configs at the
+    sandbox and at Northbay respectively.
+    """
+    import logging
+    log = logging.getLogger(__name__)
+    from backend.app.persistence.database import engine
+    from backend.app.ui import decision_state, demo_state
+
+    if engine.dialect.name != "sqlite":
+        log.info("Network demo skipped (non-SQLite database).")
+        return
+    from backend.app.ui.network_seed import seed_network_demo
+
+    db = SessionLocal()
+    try:
+        result = seed_network_demo(db)
+        db.commit()
+        demo_state.config = result.get("sandbox", {})
+        decision_state.config = result.get("decision", {})
+        log.info("Network demo ensured — %d organizations.", len(result.get("organizations", {})))
+    except Exception as exc:
+        db.rollback()
+        log.warning("Network demo seed failed (non-fatal): %s", exc, exc_info=True)
+    finally:
+        db.close()
 
 
 def _seed_demo() -> None:
@@ -206,20 +249,35 @@ def _seed_governance() -> None:
 # API routers — D11
 # ---------------------------------------------------------------------------
 
-api.include_router(models.router)
-api.include_router(contracts.router)
-api.include_router(datasets.router)
-api.include_router(ingestions.router)
-api.include_router(graph.router)
-api.include_router(executions.router)
-api.include_router(changes.router)
-api.include_router(results.router)
-api.include_router(lineage.router)
-api.include_router(scenarios.router)
-api.include_router(governance.router)
-api.include_router(product.router)
+# D26: every data router is behind request_context — authentication, organization scope,
+# role, CSRF and write limits are enforced there, and the database session is scoped to one
+# organization before any handler runs. Only sign-in, the session probe, health/readiness,
+# build identity and static page shells are reachable without it.
+_SCOPED = [Depends(request_context)]
+for _r in (models.router, contracts.router, datasets.router, ingestions.router, graph.router,
+           executions.router, changes.router, results.router, lineage.router, scenarios.router,
+           governance.router, product.router):
+    api.include_router(_r, dependencies=_SCOPED)
+api.include_router(auth_routes.router)
 api.include_router(ui_router)
 mount_frontend(api)
+api.add_middleware(SecurityMiddleware)
+
+if settings.CORS_ALLOWED_ORIGINS:
+    from fastapi.middleware.cors import CORSMiddleware
+
+    if any("*" in o for o in settings.CORS_ALLOWED_ORIGINS):
+        raise AuthConfigError("CORS_ALLOWED_ORIGINS must list exact origins; wildcards are refused.")
+    api.add_middleware(
+        CORSMiddleware, allow_origins=settings.CORS_ALLOWED_ORIGINS, allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+        allow_headers=["Content-Type", "X-CSRF-Token", "X-Scope-Org", "X-Request-ID"],
+    )
+
+
+@api.exception_handler(TenantViolation)
+def _tenant_violation(_request: Request, exc: TenantViolation) -> JSONResponse:
+    return JSONResponse(status_code=403, content={"detail": "That record belongs to another organization."})
 
 
 # ---------------------------------------------------------------------------

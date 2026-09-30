@@ -53,3 +53,8 @@ os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 # Keep test artifacts out of the developer's real storage directory.
 os.environ.setdefault("STORAGE_ROOT", str(_PLATFORM_DIR.parent / "storage_test_tmp"))
 os.environ.setdefault("ENVIRONMENT", "test")
+# D26: pre-D26 tests exercise the single-tenant demo; the multi-port network seed and fast
+# password hashing are opted into explicitly by the D26/D27 tests.
+os.environ.setdefault("DEMO_NETWORK_SEED", "false")
+os.environ.setdefault("AUTH_SCRYPT_N", "1024")
+os.environ.setdefault("AUTH_SCRYPT_P", "1")

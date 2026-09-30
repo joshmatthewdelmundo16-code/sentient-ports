@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
-import { api } from '../../api/client'
 import {
   scoped,
+  scopedGet,
   useCatalog,
   useCommitWorkbook,
   useMappingPreview,
@@ -52,7 +52,7 @@ export function ExcelPage() {
   const [committed, setCommitted] = useState<IngestionOut | null>(null)
   const impact = useUploadImpact(committed?.ingestion_id)
   const inputRef = useRef<HTMLInputElement>(null)
-  const recent = useQuery({ queryKey: scoped('ingestions'), queryFn: () => api<IngestionRow[]>('/api/ingestions?limit=6') })
+  const recent = useQuery({ queryKey: scoped('ingestions'), queryFn: scopedGet<IngestionRow[]>('/api/ingestions?limit=6') })
 
   const byName = useMemo(() => new Map((catalog.data ?? []).map((d) => [d.name, d])), [catalog.data])
   const label = (dataset: string, field: string) => {

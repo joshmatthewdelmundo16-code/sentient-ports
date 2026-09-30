@@ -56,6 +56,10 @@ CAPABILITY_ROUTES: dict[str, str] = {
     "product.run_compare": "/api/runs/compare",
     "product.upload_impact": "/api/ingestions/{ingestion_id}/impact",
     "platform.ready": "/ready",
+    # D26 — sign-in, scope and audit.
+    "auth.session": "/api/session",
+    "auth.login": "/api/auth/login",
+    "governance.audit": "/api/audit",
 }
 
 
@@ -140,7 +144,17 @@ def build_info(app: Any) -> dict[str, Any]:
         "missing_capabilities": sorted(k for k, ok in caps.items() if not ok),
         "route_count": len(route_paths(app)),
         "frontend": frontend_info(),
+        "auth_mode": _auth_mode(),
     }
+
+
+def _auth_mode() -> str:
+    from backend.app.security.auth import AuthConfigError, effective_auth_mode
+
+    try:
+        return effective_auth_mode()
+    except AuthConfigError:
+        return "misconfigured"
 
 
 def format_missing(missing: Iterable[str]) -> str:

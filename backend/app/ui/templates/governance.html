@@ -3,6 +3,39 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+/* D26 compatibility shim for the legacy pages (kept as the rollback interface).
+   Adds the CSRF token to writes, sends the scope chosen in the React product, and sends the
+   user to sign in on 401. The server enforces all of this; the shim only cooperates. */
+(function () {
+  var nativeFetch = window.fetch.bind(window);
+  function cookie(name) {
+    var hit = document.cookie.split('; ').filter(function (c) { return c.indexOf(name + '=') === 0; })[0];
+    return hit ? decodeURIComponent(hit.slice(name.length + 1)) : null;
+  }
+  window.fetch = function (input, init) {
+    init = init || {};
+    var method = (init.method || 'GET').toUpperCase();
+    var headers = new Headers(init.headers || {});
+    if (method !== 'GET' && method !== 'HEAD') {
+      var csrf = cookie('sp_csrf');
+      if (csrf && !headers.has('X-CSRF-Token')) headers.set('X-CSRF-Token', csrf);
+    }
+    var scope = null;
+    try { scope = window.localStorage.getItem('platform.scope'); } catch (e) { scope = null; }
+    if (scope && !headers.has('X-Scope-Org')) headers.set('X-Scope-Org', scope);
+    init.headers = headers;
+    init.credentials = init.credentials || 'same-origin';
+    return nativeFetch(input, init).then(function (res) {
+      if (res.status === 401) {
+        window.location.assign('/app/login?next=' + encodeURIComponent(window.location.pathname));
+      }
+      return res;
+    });
+  };
+})();
+</script>
+
 <title>Federation governance</title>
 <style>
 :root {

@@ -29,33 +29,40 @@ import type {
 
 export const scoped = (...parts: unknown[]) => ['scope', getActiveScope() ?? 'none', ...parts]
 
-export function useBuildInfo() {
-  return useQuery({ queryKey: ['build-info'], queryFn: () => api<BuildInfo>('/api/build-info'), staleTime: 60_000 })
+/** A GET bound to the scope that is active when the hook runs, so the request header can
+ *  never disagree with the cache key (e.g. an old query refetching after a scope switch). */
+export function scopedGet<T>(path: string): () => Promise<T> {
+  const scope = getActiveScope()
+  return () => api<T>(path, { scope })
 }
 
-export function useWorkspace() {
-  return useQuery({ queryKey: scoped('workspace'), queryFn: () => api<Workspace>('/api/workspace') })
+export function useBuildInfo() {
+  return useQuery({ queryKey: ['build-info'], queryFn: () => api<BuildInfo>('/api/build-info', { scope: null }), staleTime: 60_000 })
+}
+
+export function useWorkspace(enabled = true) {
+  return useQuery({ queryKey: scoped('workspace'), queryFn: scopedGet<Workspace>('/api/workspace'), enabled })
 }
 
 export function useCatalog() {
-  return useQuery({ queryKey: scoped('catalog'), queryFn: () => api<CatalogDataset[]>('/api/catalog') })
+  return useQuery({ queryKey: scoped('catalog'), queryFn: scopedGet<CatalogDataset[]>('/api/catalog') })
 }
 
 export function useFederationMap() {
-  return useQuery({ queryKey: scoped('federation-map'), queryFn: () => api<FederationMap>('/api/federation/map') })
+  return useQuery({ queryKey: scoped('federation-map'), queryFn: scopedGet<FederationMap>('/api/federation/map') })
 }
 
 export function useActivity(limit = 40) {
   return useQuery({
     queryKey: scoped('activity', limit),
-    queryFn: () => api<ActivityItem[]>(`/api/activity?limit=${limit}`),
+    queryFn: scopedGet<ActivityItem[]>(`/api/activity?limit=${limit}`),
   })
 }
 
 export function useExplanation(scenarioId: string | null | undefined) {
   return useQuery({
     queryKey: scoped('explanation', scenarioId),
-    queryFn: () => api<Explanation>(`/api/scenarios/${scenarioId}/explanation`),
+    queryFn: scopedGet<Explanation>(`/api/scenarios/${scenarioId}/explanation`),
     enabled: Boolean(scenarioId),
     retry: false,
   })
@@ -64,7 +71,7 @@ export function useExplanation(scenarioId: string | null | undefined) {
 export function useRunCompare(base: string | null | undefined, target: string | null | undefined) {
   return useQuery({
     queryKey: scoped('run-compare', base, target),
-    queryFn: () => api<Comparison>(`/api/runs/compare?base=${base}&target=${target}`),
+    queryFn: scopedGet<Comparison>(`/api/runs/compare?base=${base}&target=${target}`),
     enabled: Boolean(base && target),
   })
 }
@@ -72,14 +79,14 @@ export function useRunCompare(base: string | null | undefined, target: string | 
 export function useExecutions(limit = 30) {
   return useQuery({
     queryKey: scoped('executions', limit),
-    queryFn: () => api<ExecutionRun[]>(`/api/executions?limit=${limit}`),
+    queryFn: scopedGet<ExecutionRun[]>(`/api/executions?limit=${limit}`),
   })
 }
 
 export function useExecution(runId: string | null | undefined) {
   return useQuery({
     queryKey: scoped('execution', runId),
-    queryFn: () => api<ExecutionDetail>(`/api/executions/${runId}`),
+    queryFn: scopedGet<ExecutionDetail>(`/api/executions/${runId}`),
     enabled: Boolean(runId),
   })
 }
@@ -87,7 +94,7 @@ export function useExecution(runId: string | null | undefined) {
 export function useRunResults(runId: string | null | undefined) {
   return useQuery({
     queryKey: scoped('run-results', runId),
-    queryFn: () => api<ResultRow[]>(`/api/executions/${runId}/results`),
+    queryFn: scopedGet<ResultRow[]>(`/api/executions/${runId}/results`),
     enabled: Boolean(runId),
   })
 }
@@ -95,19 +102,19 @@ export function useRunResults(runId: string | null | undefined) {
 export function useRunLineage(runId: string | null | undefined) {
   return useQuery({
     queryKey: scoped('run-lineage', runId),
-    queryFn: () => api<LineageEdge[]>(`/api/executions/${runId}/lineage`),
+    queryFn: scopedGet<LineageEdge[]>(`/api/executions/${runId}/lineage`),
     enabled: Boolean(runId),
   })
 }
 
 export function useMappings() {
-  return useQuery({ queryKey: scoped('mappings'), queryFn: () => api<Mapping[]>('/api/ingestions/mappings') })
+  return useQuery({ queryKey: scoped('mappings'), queryFn: scopedGet<Mapping[]>('/api/ingestions/mappings') })
 }
 
 export function useMappingPreview(key: string | null | undefined) {
   return useQuery({
     queryKey: scoped('mapping-preview', key),
-    queryFn: () => api<MappingPreview>(`/api/ingestions/mappings/${encodeURIComponent(key ?? '')}/preview`),
+    queryFn: scopedGet<MappingPreview>(`/api/ingestions/mappings/${encodeURIComponent(key ?? '')}/preview`),
     enabled: Boolean(key),
   })
 }
@@ -115,7 +122,7 @@ export function useMappingPreview(key: string | null | undefined) {
 export function useUploadImpact(ingestionId: string | null | undefined) {
   return useQuery({
     queryKey: scoped('upload-impact', ingestionId),
-    queryFn: () => api<UploadImpact>(`/api/ingestions/${ingestionId}/impact`),
+    queryFn: scopedGet<UploadImpact>(`/api/ingestions/${ingestionId}/impact`),
     enabled: Boolean(ingestionId),
   })
 }
@@ -198,17 +205,17 @@ export function useCreateScenario() {
 }
 
 export function useGovernanceSummary() {
-  return useQuery({ queryKey: scoped('gov-summary'), queryFn: () => api<GovernanceSummary>('/api/governance/summary') })
+  return useQuery({ queryKey: scoped('gov-summary'), queryFn: scopedGet<GovernanceSummary>('/api/governance/summary') })
 }
 
 export function useParticipants() {
-  return useQuery({ queryKey: scoped('participants'), queryFn: () => api<Participant[]>('/api/participants') })
+  return useQuery({ queryKey: scoped('participants'), queryFn: scopedGet<Participant[]>('/api/participants') })
 }
 
 export function useApprovals() {
-  return useQuery({ queryKey: scoped('approvals'), queryFn: () => api<Approval[]>('/api/approved-outputs') })
+  return useQuery({ queryKey: scoped('approvals'), queryFn: scopedGet<Approval[]>('/api/approved-outputs') })
 }
 
 export function useExposedOutputs() {
-  return useQuery({ queryKey: scoped('exposed'), queryFn: () => api<ExposedField[]>('/api/exposed-outputs') })
+  return useQuery({ queryKey: scoped('exposed'), queryFn: scopedGet<ExposedField[]>('/api/exposed-outputs') })
 }

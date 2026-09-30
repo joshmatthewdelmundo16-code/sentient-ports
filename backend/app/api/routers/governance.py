@@ -20,11 +20,12 @@ participants, never whole datasets and never scenario outputs.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from backend.app.api.deps import get_governance_service
 from backend.app.api.errors import MAPPED_ERRORS, to_http
 from backend.app.api.schemas import (
+    ApprovalRevoke,
     ApprovedOutputCreate,
     ApprovedOutputOut,
     ExposedFieldOut,
@@ -37,6 +38,8 @@ from backend.app.api.schemas import (
 from backend.app.persistence.database import ApprovedOutput, Participant
 from backend.app.services.governance import ExposedField, GovernanceService, load_meta
 
+from backend.app.security import audit  # noqa: E402
+
 router = APIRouter(prefix="/api", tags=["Governance"])
 
 
@@ -48,7 +51,7 @@ def _participant_out(p: Participant) -> ParticipantOut:
     return ParticipantOut(
         id=p.id, participant_key=p.participant_key, name=p.name,
         description=p.description, status=p.status, metadata=load_meta(p.meta_json),
-        created_at=p.created_at, updated_at=p.updated_at,
+        created_at=p.created_at, updated_at=p.updated_at, organization_id=p.organization_id,
     )
 
 
@@ -58,6 +61,9 @@ def _approval_out(a: ApprovedOutput) -> ApprovedOutputOut:
         field_name=a.field_name, purpose=a.purpose, status=a.status,
         approved_at=a.approved_at, expires_at=a.expires_at, revoked_at=a.revoked_at,
         metadata=load_meta(a.meta_json), created_at=a.created_at, updated_at=a.updated_at,
+        organization_id=a.organization_id, audience_organization_id=a.audience_organization_id,
+        source_run_id=a.source_run_id, approved_by_user_id=a.approved_by_user_id,
+        revoked_by_user_id=a.revoked_by_user_id, revocation_reason=a.revocation_reason,
     )
 
 
@@ -67,6 +73,8 @@ def _exposed_out(e: ExposedField) -> ExposedFieldOut:
         dataset_id=e.dataset_id, dataset_name=e.dataset_name, field_name=e.field_name,
         purpose=e.purpose, value=e.value, value_present=e.value_present,
         approved_at=e.approved_at, expires_at=e.expires_at,
+        audience_organization_id=e.audience_organization_id, source_run_id=e.source_run_id,
+        value_source=e.value_source, organization_id=e.organization_id,
     )
 
 
@@ -77,7 +85,8 @@ def _exposed_out(e: ExposedField) -> ExposedFieldOut:
 @router.post("/participants", response_model=ParticipantOut, status_code=201,
              summary="Register a federation participant")
 def create_participant(
-    body: ParticipantCreate, svc: GovernanceService = Depends(get_governance_service),
+    body: ParticipantCreate, request: Request,
+    svc: GovernanceService = Depends(get_governance_service),
 ) -> ParticipantOut:
     try:
         p = svc.register_participant(
@@ -86,6 +95,8 @@ def create_participant(
         )
     except MAPPED_ERRORS as exc:
         raise to_http(exc)
+    audit.record(svc._db, action="participant.created", request=request, target_type="participant",
+                 target_id=p.id, summary=f"Registered {p.name}")
     return _participant_out(p)
 
 
@@ -111,7 +122,7 @@ def get_participant(
 @router.patch("/participants/{participant_id}", response_model=ParticipantOut,
               summary="Update a participant")
 def update_participant(
-    participant_id: str, body: ParticipantUpdate,
+    participant_id: str, body: ParticipantUpdate, request: Request,
     svc: GovernanceService = Depends(get_governance_service),
 ) -> ParticipantOut:
     try:
@@ -121,6 +132,8 @@ def update_participant(
         )
     except MAPPED_ERRORS as exc:
         raise to_http(exc)
+    audit.record(svc._db, action="participant.updated", request=request, target_type="participant",
+                 target_id=p.id, summary=f"Updated {p.name} (status {p.status})")
     return _participant_out(p)
 
 
@@ -131,16 +144,29 @@ def update_participant(
 @router.post("/approved-outputs", response_model=ApprovedOutputOut, status_code=201,
              summary="Approve a dataset field for external/output exposure")
 def create_approved_output(
-    body: ApprovedOutputCreate, svc: GovernanceService = Depends(get_governance_service),
+    body: ApprovedOutputCreate, request: Request,
+    svc: GovernanceService = Depends(get_governance_service),
 ) -> ApprovedOutputOut:
+    ctx = getattr(request.state, "ctx", None)
     try:
         a = svc.create_approval(
             participant_id=body.participant_id, dataset_id=body.dataset_id,
             field_name=body.field_name, purpose=body.purpose,
             expires_at=body.expires_at, metadata=body.metadata,
+            audience_organization_id=body.audience_organization_id,
+            source_run_id=body.source_run_id,
+            approved_by_user_id=ctx.principal.user_id if ctx else None,
         )
     except MAPPED_ERRORS as exc:
+        audit.defer(request, svc._db, action="approval.denied", outcome="denied",
+                    organization_id=ctx.org_id if ctx else None, target_type="dataset",
+                    target_id=body.dataset_id, summary=f"Approval of {body.field_name!r} refused: {exc}")
         raise to_http(exc)
+    audit.record(svc._db, action="approval.created", request=request, target_type="approved_output",
+                 target_id=a.id, summary=f"Shared {a.field_name} ({a.purpose or 'no purpose stated'})",
+                 detail={"audience_organization_id": a.audience_organization_id,
+                         "dataset_id": a.dataset_id, "source_run_id": a.source_run_id,
+                         "expires_at": a.expires_at})
     return _approval_out(a)
 
 
@@ -171,12 +197,19 @@ def get_approved_output(
 @router.post("/approved-outputs/{approval_id}/revoke", response_model=ApprovedOutputOut,
              summary="Revoke an approved output")
 def revoke_approved_output(
-    approval_id: str, svc: GovernanceService = Depends(get_governance_service),
+    approval_id: str, request: Request, body: ApprovalRevoke | None = None,
+    svc: GovernanceService = Depends(get_governance_service),
 ) -> ApprovedOutputOut:
+    ctx = getattr(request.state, "ctx", None)
     try:
-        return _approval_out(svc.revoke_approval(approval_id))
+        a = svc.revoke_approval(approval_id, revoked_by_user_id=ctx.principal.user_id if ctx else None,
+                                reason=body.reason if body else None)
     except MAPPED_ERRORS as exc:
         raise to_http(exc)
+    audit.record(svc._db, action="approval.revoked", request=request, target_type="approved_output",
+                 target_id=a.id, summary=f"Stopped sharing {a.field_name}",
+                 detail={"reason": a.revocation_reason})
+    return _approval_out(a)
 
 
 # ---------------------------------------------------------------------------
@@ -200,25 +233,29 @@ def list_exposed_outputs(
 @router.put("/datasets/{dataset_id}/owner", status_code=204,
             summary="Set or clear a dataset's owning participant")
 def set_dataset_owner(
-    dataset_id: str, body: OwnerUpdate,
+    dataset_id: str, body: OwnerUpdate, request: Request,
     svc: GovernanceService = Depends(get_governance_service),
 ) -> None:
     try:
         svc.set_dataset_owner(dataset_id, body.participant_id)
     except MAPPED_ERRORS as exc:
         raise to_http(exc)
+    audit.record(svc._db, action="ownership.changed", request=request, target_type="dataset",
+                 target_id=dataset_id, detail={"participant_id": body.participant_id})
 
 
 @router.put("/model-versions/{version_id}/owner", status_code=204,
             summary="Set or clear a model version's owning participant")
 def set_model_version_owner(
-    version_id: str, body: OwnerUpdate,
+    version_id: str, body: OwnerUpdate, request: Request,
     svc: GovernanceService = Depends(get_governance_service),
 ) -> None:
     try:
         svc.set_model_version_owner(version_id, body.participant_id)
     except MAPPED_ERRORS as exc:
         raise to_http(exc)
+    audit.record(svc._db, action="ownership.changed", request=request, target_type="model_version",
+                 target_id=version_id, detail={"participant_id": body.participant_id})
 
 
 # ---------------------------------------------------------------------------

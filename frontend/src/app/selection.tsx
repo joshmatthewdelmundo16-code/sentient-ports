@@ -34,8 +34,8 @@ function load(scopeId: string | undefined): { b?: string; s?: string } {
 }
 
 export function SelectionProvider({ children }: { children: ReactNode }) {
-  const { scope } = useScope()
-  const ws = useWorkspace()
+  const { scope, session } = useScope()
+  const ws = useWorkspace(Boolean(session?.authenticated))
   const [picked, setPicked] = useState<Record<string, { b?: string; s?: string }>>({})
   const scopeId = scope?.id
   const key = scopeId ?? 'local'

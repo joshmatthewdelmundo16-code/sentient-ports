@@ -30,6 +30,7 @@ from sqlalchemy import (
     UniqueConstraint,
     create_engine,
     event,
+    func,
     text,
 )
 from sqlalchemy.orm import (
@@ -132,11 +133,13 @@ class Model(Base):
     """Registry entry for a federated model (identity, not executable unit)."""
 
     __tablename__ = "model"
-    __table_args__ = (
-        UniqueConstraint("owner", "name", name="uq_model_owner_name"),
-    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    # D26: owning organization (tenant). Stamped automatically from the request scope and
+    # enforced on every read (backend/app/security/tenancy.py).
+    organization_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("organization.id"), nullable=True, index=True
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     owner: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -167,6 +170,11 @@ class ModelVersion(Base):
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    # D26: owning organization (tenant). Stamped automatically from the request scope and
+    # enforced on every read (backend/app/security/tenancy.py).
+    organization_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("organization.id"), nullable=True, index=True
+    )
     model_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("model.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -214,6 +222,11 @@ class ModelIOBinding(Base):
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    # D26: owning organization (tenant). Stamped automatically from the request scope and
+    # enforced on every read (backend/app/security/tenancy.py).
+    organization_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("organization.id"), nullable=True, index=True
+    )
     model_version_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("model_version.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -238,7 +251,12 @@ class Dataset(Base):
     __tablename__ = "dataset"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    # D26: owning organization (tenant). Stamped automatically from the request scope and
+    # enforced on every read (backend/app/security/tenancy.py).
+    organization_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("organization.id"), nullable=True, index=True
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # D25: business-readable label ("Port assumptions"); NULL → derived from name.
     display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -281,6 +299,11 @@ class DataContract(Base):
     __tablename__ = "data_contract"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    # D26: owning organization (tenant). Stamped automatically from the request scope and
+    # enforced on every read (backend/app/security/tenancy.py).
+    organization_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("organization.id"), nullable=True, index=True
+    )
     dataset_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("dataset.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -305,6 +328,11 @@ class Dependency(Base):
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    # D26: owning organization (tenant). Stamped automatically from the request scope and
+    # enforced on every read (backend/app/security/tenancy.py).
+    organization_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("organization.id"), nullable=True, index=True
+    )
     # The model version that *produces* the output dataset
     producer_version_id: Mapped[str] = mapped_column(
         String(36),
@@ -357,6 +385,11 @@ class ExecutionRun(Base):
     __tablename__ = "execution_run"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    # D26: owning organization (tenant). Stamped automatically from the request scope and
+    # enforced on every read (backend/app/security/tenancy.py).
+    organization_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("organization.id"), nullable=True, index=True
+    )
     run_kind: Mapped[str] = mapped_column(String(16), nullable=False, default="graph")
     executor: Mapped[str] = mapped_column(String(32), nullable=False, default="in_process")
     target_version_id: Mapped[str | None] = mapped_column(
@@ -398,6 +431,11 @@ class ExecutionStep(Base):
     __tablename__ = "execution_step"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    # D26: owning organization (tenant). Stamped automatically from the request scope and
+    # enforced on every read (backend/app/security/tenancy.py).
+    organization_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("organization.id"), nullable=True, index=True
+    )
     run_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("execution_run.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -442,6 +480,11 @@ class Result(Base):
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    # D26: owning organization (tenant). Stamped automatically from the request scope and
+    # enforced on every read (backend/app/security/tenancy.py).
+    organization_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("organization.id"), nullable=True, index=True
+    )
     run_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("execution_run.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -480,6 +523,11 @@ class LineageEdge(Base):
     __tablename__ = "lineage_edge"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    # D26: owning organization (tenant). Stamped automatically from the request scope and
+    # enforced on every read (backend/app/security/tenancy.py).
+    organization_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("organization.id"), nullable=True, index=True
+    )
     run_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("execution_run.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -522,6 +570,11 @@ class ChangeEvent(Base):
     __tablename__ = "change_event"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    # D26: owning organization (tenant). Stamped automatically from the request scope and
+    # enforced on every read (backend/app/security/tenancy.py).
+    organization_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("organization.id"), nullable=True, index=True
+    )
     dataset_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("dataset.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -571,6 +624,11 @@ class IngestionRun(Base):
     __tablename__ = "ingestion_run"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    # D26: owning organization (tenant). Stamped automatically from the request scope and
+    # enforced on every read (backend/app/security/tenancy.py).
+    organization_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("organization.id"), nullable=True, index=True
+    )
     source_name: Mapped[str] = mapped_column(String(512), nullable=False)
     content_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     mapping_key: Mapped[str] = mapped_column(String(128), nullable=False)
@@ -600,11 +658,13 @@ class Baseline(Base):
     """
 
     __tablename__ = "baseline"
-    __table_args__ = (
-        UniqueConstraint("name", name="uq_baseline_name"),
-    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    # D26: owning organization (tenant). Stamped automatically from the request scope and
+    # enforced on every read (backend/app/security/tenancy.py).
+    organization_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("organization.id"), nullable=True, index=True
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Lifecycle: active → archived
@@ -642,6 +702,11 @@ class Scenario(Base):
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    # D26: owning organization (tenant). Stamped automatically from the request scope and
+    # enforced on every read (backend/app/security/tenancy.py).
+    organization_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("organization.id"), nullable=True, index=True
+    )
     baseline_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("baseline.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -685,6 +750,11 @@ class ScenarioOverride(Base):
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    # D26: owning organization (tenant). Stamped automatically from the request scope and
+    # enforced on every read (backend/app/security/tenancy.py).
+    organization_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("organization.id"), nullable=True, index=True
+    )
     scenario_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("scenario.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -718,6 +788,11 @@ class Participant(Base):
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    # D26: owning organization (tenant). Stamped automatically from the request scope and
+    # enforced on every read (backend/app/security/tenancy.py).
+    organization_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("organization.id"), nullable=True, index=True
+    )
     participant_key: Mapped[str] = mapped_column(String(128), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -759,6 +834,11 @@ class ApprovedOutput(Base):
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    # D26: owning organization (tenant). Stamped automatically from the request scope and
+    # enforced on every read (backend/app/security/tenancy.py).
+    organization_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("organization.id"), nullable=True, index=True
+    )
     participant_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("participant.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -772,6 +852,22 @@ class ApprovedOutput(Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     meta_json: Mapped[str | None] = mapped_column("metadata_json", Text, nullable=True)
+    # D26: who the field is shared WITH. NULL = the whole network (the D22 meaning).
+    audience_organization_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("organization.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    # D26: explicit approval of ONE run's result (e.g. a scenario run shared into a case).
+    # NULL = the dataset's current published value. Never set implicitly.
+    source_run_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("execution_run.id", ondelete="SET NULL"), nullable=True
+    )
+    approved_by_user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("app_user.id", ondelete="SET NULL"), nullable=True
+    )
+    revoked_by_user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("app_user.id", ondelete="SET NULL"), nullable=True
+    )
+    revocation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now, onupdate=_now
@@ -781,6 +877,131 @@ class ApprovedOutput(Base):
         "Participant", back_populates="approved_outputs"
     )
     dataset: Mapped["Dataset"] = relationship("Dataset")
+
+
+# D26: names are unique per organization. Expression indexes over
+# coalesce(organization_id, '') keep the pre-tenancy guarantee for unowned rows too (a plain
+# composite UNIQUE would let any number of NULL-organization duplicates through).
+Index("uq_model_org_owner_name", func.coalesce(Model.__table__.c.organization_id, ""),
+      Model.__table__.c.owner, Model.__table__.c.name, unique=True)
+Index("uq_dataset_org_name", func.coalesce(Dataset.__table__.c.organization_id, ""),
+      Dataset.__table__.c.name, unique=True)
+Index("uq_baseline_org_name", func.coalesce(Baseline.__table__.c.organization_id, ""),
+      Baseline.__table__.c.name, unique=True)
+
+
+# ---------------------------------------------------------------------------
+# Identity, tenancy and audit (D26)
+# ---------------------------------------------------------------------------
+
+class Organization(Base):
+    """A tenant and a zone of the port network.
+
+    kind: "port" (a home-port private modelling zone) | "regional_hub" | "national_hub" |
+    "network" | "sandbox". parent_id builds the hierarchy port -> regional -> national ->
+    network. An organization sees only its own records plus outputs other organizations
+    have explicitly approved for it (or for the whole network).
+    """
+
+    __tablename__ = "organization"
+    __table_args__ = (UniqueConstraint("org_key", name="uq_organization_key"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    org_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False, default="port")
+    parent_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("organization.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    meta_json: Mapped[str | None] = mapped_column("metadata_json", Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, onupdate=_now
+    )
+
+
+class AppUser(Base):
+    """A person who signs in. Passwords are stored only as a salted scrypt hash."""
+
+    __tablename__ = "app_user"
+    __table_args__ = (UniqueConstraint("email", name="uq_app_user_email"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    email: Mapped[str] = mapped_column(String(320), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    password_hash: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    is_platform_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, onupdate=_now
+    )
+
+
+class Membership(Base):
+    """The role one user holds in one organization: viewer < analyst < approver < admin."""
+
+    __tablename__ = "membership"
+    __table_args__ = (UniqueConstraint("user_id", "organization_id", name="uq_membership_user_org"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("app_user.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organization.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    role: Mapped[str] = mapped_column(String(32), nullable=False, default="viewer")
+    # The scope a user lands in when they have several memberships.
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class UserSession(Base):
+    """Server-side session. Only the SHA-256 of the cookie token is stored."""
+
+    __tablename__ = "user_session"
+    __table_args__ = (UniqueConstraint("token_hash", name="uq_user_session_token_hash"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("app_user.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    csrf_token: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+
+class AuditEvent(Base):
+    """Append-only security and governance trail. There is no API to edit or delete it."""
+
+    __tablename__ = "audit_event"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, index=True)
+    organization_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("organization.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    actor_user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("app_user.id", ondelete="SET NULL"), nullable=True
+    )
+    actor_label: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    action: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    outcome: Mapped[str] = mapped_column(String(32), nullable=False)
+    target_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    target_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    detail_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    request_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 # ---------------------------------------------------------------------------

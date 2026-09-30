@@ -163,6 +163,11 @@ AUTO_CREATE_SCHEMA: bool = _env_bool("AUTO_CREATE_SCHEMA", _IS_SQLITE_DEFAULT)
 # must never gain demo rows just because someone started the app.
 DEMO_SEED_ENABLED: bool = _env_bool("DEMO_SEED_ENABLED", _IS_SQLITE_DEFAULT)
 
+# D26: what the demo seed builds. true (default) → the synthetic multi-port network:
+# organizations, hubs, demo accounts, and each port's private federation. false → the
+# pre-D26 single-tenant demo (unscoped rows), which the automated test suite keeps using.
+DEMO_NETWORK_SEED: bool = _env_bool("DEMO_NETWORK_SEED", True)
+
 # Optional: the externally reachable base URL, shown in the UI and /api/build-info.
 # Never invented — empty until an operator actually deploys and sets it.
 PUBLIC_BASE_URL: str = _env("PUBLIC_BASE_URL", "")

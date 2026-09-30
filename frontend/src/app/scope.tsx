@@ -33,7 +33,7 @@ export interface Session {
   memberships: Membership[]
   organizations: Organization[]
   active_organization_id: string | null
-  demo_accounts?: { email: string; role: string; organization: string }[]
+  demo_accounts?: { email: string; role: string; organization: string; password?: string }[] | null
 }
 
 interface ScopeValue {
@@ -113,9 +113,11 @@ export function ScopeProvider({ children }: { children: ReactNode }) {
   const setScope = useCallback((orgId: string) => {
     try { window.localStorage.setItem(STORAGE_KEY, orgId) } catch { /* private mode */ }
     setActiveScope(orgId)
+    // No invalidation: every scoped query key carries the scope, so switching simply moves
+    // to a different set of cache entries. Refetching the old ones would send their
+    // identifiers under the new scope.
     setChosen(orgId)
-    void qc.invalidateQueries({ queryKey: ['scope'] })
-  }, [qc])
+  }, [])
 
   const membership = memberships.find((m) => m.organization.id === scopeId) ?? null
   const role = membership?.role ?? (session?.auth_mode === 'local' ? 'admin' : null)

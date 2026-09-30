@@ -16,7 +16,7 @@ Follows the D11 conventions: service dependencies, MAPPED_ERRORS → to_http.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Request, HTTPException
 
 from backend.app.api.deps import (
     get_scenario_comparison_service,
@@ -36,6 +36,8 @@ from backend.app.api.schemas import (
 )
 from backend.app.services.scenario_comparison import ScenarioComparisonService
 from backend.app.services.scenarios import ScenarioExecutionError, ScenarioService
+
+from backend.app.security import audit  # noqa: E402
 
 router = APIRouter(prefix="/api", tags=["Scenarios"])
 
@@ -80,12 +82,15 @@ def get_baseline(
 @router.post("/baselines/{baseline_id}/execute", response_model=BaselineRunOut, status_code=201,
              summary="Execute a baseline as one GraphRun (publishes dataset values normally)")
 def execute_baseline(
-    baseline_id: str, svc: ScenarioService = Depends(get_scenario_service),
+    baseline_id: str, request: Request, svc: ScenarioService = Depends(get_scenario_service),
 ) -> BaselineRunOut:
     try:
         go = svc.execute_baseline(baseline_id)
     except MAPPED_ERRORS as exc:
         raise to_http(exc)
+    audit.record(svc._db, action="baseline.executed", request=request, target_type="run",
+                 target_id=go.run_id, outcome="success" if go.success else "failure",
+                 summary=f"Baseline {svc.get_baseline(baseline_id).name} · {go.status}")
     return BaselineRunOut(
         baseline_id=baseline_id, graph_run_id=go.run_id, status=go.status,
         success=go.success, execution_order=go.execution_order, error=go.error,
@@ -176,12 +181,15 @@ def remove_override(
 @router.post("/scenarios/{scenario_id}/execute", response_model=ScenarioRunOut, status_code=201,
              summary="Execute a scenario as one GraphRun (read-only: shared state not mutated)")
 def execute_scenario(
-    scenario_id: str, svc: ScenarioService = Depends(get_scenario_service),
+    scenario_id: str, request: Request, svc: ScenarioService = Depends(get_scenario_service),
 ) -> ScenarioRunOut:
     try:
         go = svc.execute_scenario(scenario_id)
     except MAPPED_ERRORS as exc:
         raise to_http(exc)
+    audit.record(svc._db, action="scenario.executed", request=request, target_type="run",
+                 target_id=go.run_id, outcome="success" if go.success else "failure",
+                 summary=f"Scenario {svc.get_scenario(scenario_id).name} · {go.status} (read-only)")
     return ScenarioRunOut(
         scenario_id=scenario_id, graph_run_id=go.run_id, status=go.status,
         success=go.success, execution_order=go.execution_order, error=go.error,

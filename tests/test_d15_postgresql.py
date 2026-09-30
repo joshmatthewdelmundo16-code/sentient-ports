@@ -204,6 +204,7 @@ class TestD15PostgreSQL:
         conn = self.engine.connect()
         trans = conn.begin()
         Base.metadata.create_all(bind=conn)
+        self.conn = conn
         self.SF = sessionmaker(bind=conn, join_transaction_mode="create_savepoint")
         yield
         trans.rollback()
@@ -211,7 +212,10 @@ class TestD15PostgreSQL:
         self.engine.dispose()
 
     def test_tables_created_on_pg(self):
-        inspector = inspect(self.engine)
+        # D26 fix: inspect through the connection that holds the (uncommitted, transactional)
+        # DDL. Inspecting via the engine opened a second connection that cannot see it; the
+        # test had never actually run before because no disposable PostgreSQL was available.
+        inspector = inspect(self.conn)
         tables = set(inspector.get_table_names())
         expected = {
             "model", "model_version", "dataset", "data_contract",

@@ -8,7 +8,7 @@ Only a malformed request (no file) is a 4xx from FastAPI validation.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
@@ -37,15 +37,22 @@ XLSX_MEDIA_TYPE = (
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
+from backend.app.security import audit  # noqa: E402
+
 router = APIRouter(prefix="/api/ingestions", tags=["Ingestion"])
 
 
-async def _read_bounded(file: UploadFile, limit: int) -> bytes:
-    """Read at most limit+1 bytes so an oversized upload is detected without loading it all."""
+def _read_bounded(file: UploadFile, limit: int) -> bytes:
+    """Read at most limit+1 bytes so an oversized upload is detected without loading it all.
+
+    D26: synchronous on purpose. Both upload endpoints are plain `def` so FastAPI runs them
+    in its thread pool — parsing a workbook and writing to the database must never block the
+    event loop that every other request shares.
+    """
     chunks: list[bytes] = []
     total = 0
     while True:
-        chunk = await file.read(64 * 1024)
+        chunk = file.file.read(64 * 1024)
         if not chunk:
             break
         total += len(chunk)
@@ -104,7 +111,7 @@ def download_template(
 
 @router.post("/excel/validate", response_model=WorkbookPreviewOut,
              summary="Dry-run a workbook: what would change, and is it valid?")
-async def validate_excel(
+def validate_excel(
     mapping: str = Query(..., description="Known mapping key (see GET /api/ingestions/mappings)"),
     file: UploadFile = File(..., description=".xlsx workbook"),
     db: Session = Depends(get_db, scope="function"),
@@ -118,7 +125,7 @@ async def validate_excel(
     """
     if get_mapping(mapping) is None:
         raise HTTPException(status_code=404, detail=f"Unknown mapping key {mapping!r}.")
-    data = await _read_bounded(file, MAX_WORKBOOK_BYTES)
+    data = _read_bounded(file, MAX_WORKBOOK_BYTES)
     if len(data) > MAX_WORKBOOK_BYTES:
         raise HTTPException(
             status_code=413,
@@ -133,18 +140,27 @@ async def validate_excel(
 
 @router.post("/excel", response_model=IngestionOut, status_code=201,
              summary="Ingest an .xlsx workbook through a named mapping")
-async def ingest_excel(
+def ingest_excel(
+    request: Request,
     mapping: str = Query(..., description="Known mapping key (see GET /api/ingestions/mappings)"),
     file: UploadFile = File(..., description=".xlsx workbook"),
     svc: IngestionService = Depends(get_ingestion_service),
 ) -> IngestionOut:
     if get_mapping(mapping) is None:
         raise HTTPException(status_code=404, detail=f"Unknown mapping key {mapping!r}.")
-    data = await _read_bounded(file, MAX_WORKBOOK_BYTES)
+    data = _read_bounded(file, MAX_WORKBOOK_BYTES)
     result = svc.ingest_excel(
         source_name=file.filename or "upload.xlsx",
         workbook_bytes=data,
         mapping_key=mapping,
+    )
+    audit.record(
+        svc._db, request=request, target_type="ingestion", target_id=result.ingestion_id,
+        action="ingestion.rejected" if result.status == "rejected" else "ingestion.committed",
+        outcome="failure" if result.status == "rejected" else "success",
+        summary=f"{result.source_name} · {result.status}",
+        detail={"sha256": result.content_sha256, "mapping": mapping, "run": result.graph_run_id,
+                "error": result.error},
     )
     return IngestionOut(**result._asdict())
 

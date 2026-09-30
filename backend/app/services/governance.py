@@ -18,10 +18,17 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.app.persistence.approved_output_repository import ApprovedOutputRepository
-from backend.app.persistence.database import ApprovedOutput, Participant
+from backend.app.persistence.database import (
+    ApprovedOutput,
+    ExecutionRun,
+    Organization,
+    Participant,
+    Result,
+)
 from backend.app.persistence.dataset_repository import DatasetRepository
 from backend.app.persistence.exceptions import DuplicateError, NotFoundError
 from backend.app.persistence.participant_repository import ParticipantRepository
@@ -82,6 +89,11 @@ class ExposedField:
     value_present: bool   # whether the field was actually present in the dataset value
     approved_at: datetime | None
     expires_at: datetime | None
+    # D26
+    audience_organization_id: str | None = None   # None = whole network
+    source_run_id: str | None = None              # set only for an explicitly shared run result
+    value_source: str = "published"               # "published" | "run"
+    organization_id: str | None = None            # the data owner
 
 
 # ---------------------------------------------------------------------------
@@ -241,6 +253,36 @@ class GovernanceService:
     # Approved outputs
     # ------------------------------------------------------------------
 
+    def _scope_org(self) -> str | None:
+        scope = self._db.info.get("tenant_scope")
+        return getattr(scope, "org_id", None)
+
+    def _validate_audience(self, audience_organization_id: str | None) -> None:
+        if audience_organization_id is None:
+            return
+        org = self._db.get(Organization, audience_organization_id)
+        if org is None or org.status != "active":
+            raise ApprovalValidationError(
+                f"Audience organization {audience_organization_id!r} does not exist or is inactive.")
+        if audience_organization_id == self._scope_org():
+            raise ApprovalValidationError(
+                "An organization cannot share an output with itself; choose a hub, another "
+                "organization, or the whole network.")
+
+    def _validate_source_run(self, source_run_id: str, dataset_id: str, field: str) -> None:
+        run = self._db.get(ExecutionRun, source_run_id)
+        if run is None:
+            raise ApprovalValidationError(f"Run {source_run_id!r} not found.")
+        if run.status != "succeeded":
+            raise ApprovalValidationError("Only a run that succeeded can be shared.")
+        result = self._db.execute(
+            select(Result).where(Result.run_id == source_run_id, Result.dataset_id == dataset_id)
+        ).scalars().first()
+        record = json.loads(result.value_json) if result is not None else None
+        if not isinstance(record, dict) or field not in record:
+            raise ApprovalValidationError(
+                f"Run {source_run_id!r} recorded no value for {field!r} of that dataset.")
+
     def create_approval(
         self,
         *,
@@ -250,6 +292,9 @@ class GovernanceService:
         purpose: str | None = None,
         expires_at: datetime | None = None,
         metadata: dict[str, Any] | None = None,
+        audience_organization_id: str | None = None,
+        source_run_id: str | None = None,
+        approved_by_user_id: str | None = None,
     ) -> ApprovedOutput:
         participant = self.get_participant(participant_id)
         if participant.status != "active":
@@ -265,6 +310,9 @@ class GovernanceService:
             raise ApprovalValidationError(f"Dataset {dataset_id!r} not found.") from exc
         if expires_at is not None and _as_aware(expires_at) <= _now():
             raise ApprovalValidationError("expires_at must be in the future.")
+        self._validate_audience(audience_organization_id)
+        if source_run_id is not None:
+            self._validate_source_run(source_run_id, dataset_id, field)
         meta_json = _dump_meta(metadata)
 
         # Explicit duplicate check (the partial unique index is the hard guarantee).
@@ -278,6 +326,8 @@ class GovernanceService:
                 participant_id=participant_id, dataset_id=dataset_id, field_name=field,
                 purpose=purpose, status="active", approved_at=_now(),
                 expires_at=expires_at, meta_json=meta_json,
+                audience_organization_id=audience_organization_id,
+                source_run_id=source_run_id, approved_by_user_id=approved_by_user_id,
             ))
         except DuplicateError as exc:  # race against the partial unique index
             raise DuplicateApprovalError(
@@ -291,11 +341,14 @@ class GovernanceService:
         except NotFoundError as exc:
             raise ApprovedOutputNotFoundError(f"Approved output {approval_id!r} not found.") from exc
 
-    def revoke_approval(self, approval_id: str) -> ApprovedOutput:
+    def revoke_approval(self, approval_id: str, *, revoked_by_user_id: str | None = None,
+                        reason: str | None = None) -> ApprovedOutput:
         approval = self.get_approval(approval_id)
         if approval.status != "revoked":
             approval.status = "revoked"
             approval.revoked_at = _now()
+            approval.revoked_by_user_id = revoked_by_user_id
+            approval.revocation_reason = (reason or "").strip() or None
             self._db.flush()
         return approval
 
@@ -360,7 +413,15 @@ class GovernanceService:
                 continue
             value: Any = None
             present = False
-            if dataset.current_value is not None:
+            if a.source_run_id:
+                # Explicitly shared run result (e.g. a scenario shared into a case): the value
+                # is that run's recorded result, never the live dataset.
+                res = self._db.execute(select(Result).where(
+                    Result.run_id == a.source_run_id, Result.dataset_id == a.dataset_id)).scalars().first()
+                record = json.loads(res.value_json) if res is not None else None
+                if isinstance(record, dict) and a.field_name in record:
+                    value, present = record[a.field_name], True
+            elif dataset.current_value is not None:
                 record = json.loads(dataset.current_value)
                 if isinstance(record, dict) and a.field_name in record:
                     value = record[a.field_name]
@@ -376,6 +437,10 @@ class GovernanceService:
                 value_present=present,
                 approved_at=a.approved_at,
                 expires_at=a.expires_at,
+                audience_organization_id=a.audience_organization_id,
+                source_run_id=a.source_run_id,
+                value_source="run" if a.source_run_id else "published",
+                organization_id=a.organization_id,
             ))
         return view
 

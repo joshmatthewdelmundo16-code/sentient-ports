@@ -546,6 +546,7 @@ class ParticipantOut(BaseModel):
     metadata: dict[str, Any] | None = None
     created_at: datetime
     updated_at: datetime | None = None
+    organization_id: str | None = None
 
 
 class ApprovedOutputCreate(_Request):
@@ -555,6 +556,14 @@ class ApprovedOutputCreate(_Request):
     purpose: str | None = None
     expires_at: datetime | None = Field(None, description="Optional expiry (UTC); must be future")
     metadata: dict[str, Any] | None = None
+    audience_organization_id: str | None = Field(
+        None, description="Organization the field is shared with; null = the whole network")
+    source_run_id: str | None = Field(
+        None, description="Share this one run's recorded result instead of the live value")
+
+
+class ApprovalRevoke(_Request):
+    reason: str | None = Field(None, max_length=2000, description="Why the approval was revoked")
 
 
 class ApprovedOutputOut(BaseModel):
@@ -570,6 +579,12 @@ class ApprovedOutputOut(BaseModel):
     metadata: dict[str, Any] | None = None
     created_at: datetime
     updated_at: datetime | None = None
+    organization_id: str | None = None
+    audience_organization_id: str | None = None
+    source_run_id: str | None = None
+    approved_by_user_id: str | None = None
+    revoked_by_user_id: str | None = None
+    revocation_reason: str | None = None
 
 
 class ExposedFieldOut(BaseModel):
@@ -583,6 +598,10 @@ class ExposedFieldOut(BaseModel):
     value_present: bool
     approved_at: datetime | None = None
     expires_at: datetime | None = None
+    audience_organization_id: str | None = None
+    source_run_id: str | None = None
+    value_source: str = "published"
+    organization_id: str | None = None
 
 
 class OwnerUpdate(_Request):

@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api, ApiError } from '../../api/client'
-import { scoped, useCatalog, useInvalidateScope, useParticipants } from '../../api/queries'
+import { scoped, scopedGet, useCatalog, useInvalidateScope, useParticipants } from '../../api/queries'
 import type { Approval } from '../../api/types'
 import { kindLabel, useScope } from '../../app/scope'
 import { formatDateTime, statusLabel } from '../../shared/format'
@@ -157,10 +157,11 @@ const ACTION: Record<string, string> = {
 }
 
 export function AuditLog() {
+  const auditGet = scopedGet<AuditEvent[]>('/api/audit?limit=60')
   const audit = useQuery({
     queryKey: scoped('audit'),
     queryFn: async () => {
-      try { return await api<AuditEvent[]>('/api/audit?limit=60') } catch (e) {
+      try { return await auditGet() } catch (e) {
         if (e instanceof ApiError && (e.status === 404 || e.status === 403)) return null
         throw e
       }

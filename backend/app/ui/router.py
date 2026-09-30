@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
@@ -40,8 +40,15 @@ def ui_governance(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "governance.html")
 
 
+def _scoped():
+    # Late import: security.auth imports the ORM, which must not load before settings.
+    from backend.app.security.auth import request_context
+    return [Depends(request_context)]
+
+
 @router.get(
     "/api/demo-config",
+    dependencies=_scoped(),
     tags=["Demo"],
     summary="Demo configuration — version IDs and dataset IDs for the UI",
 )
@@ -58,6 +65,7 @@ def get_demo_config() -> dict:
 
 @router.get(
     "/api/decision-config",
+    dependencies=_scoped(),
     tags=["Demo"],
     summary="Decision-support config — demo baseline/scenario IDs for the UI (D20)",
 )

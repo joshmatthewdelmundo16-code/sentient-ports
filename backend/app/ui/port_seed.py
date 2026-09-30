@@ -233,16 +233,17 @@ def _ensure_dataset(db: Session, name: str, fields: list[dict[str, Any]]) -> Dat
     return ds
 
 
-def _ensure_version(db: Session, registry: ModelRegistry, spec: dict[str, Any]) -> ModelVersion:
+def _ensure_version(db: Session, registry: ModelRegistry, spec: dict[str, Any],
+                    owner: str = PORT_OWNER) -> ModelVersion:
     description = (
         f"{spec['purpose']} | Formula: {spec['formula']} | "
         f"Inputs: {', '.join(f'{n} ({u})' for n, u in spec['inputs'])} | {_ILLUSTRATIVE}"
     )
     try:
-        model = registry.get_model_by_name(name=spec["name"], owner=PORT_OWNER)
+        model = registry.get_model_by_name(name=spec["name"], owner=owner)
     except ModelNotFoundError:
         model = registry.register_model(
-            name=spec["name"], owner=PORT_OWNER, model_type="port_domain",
+            name=spec["name"], owner=owner, model_type="port_domain",
             description=description, status="active",
         )
     if not model.card_json:
@@ -294,14 +295,21 @@ def _identity_map(names: list[str]) -> dict[str, str]:
 # Seed
 # ---------------------------------------------------------------------------
 
-def seed_port_domain(db: Session) -> dict:
-    """Ensure the D17 port-domain federation exists; return its config (IDs for tests/UI)."""
+def seed_port_domain(db: Session, assumptions: dict[str, float] | None = None,
+                     owner: str = PORT_OWNER) -> dict:
+    """Ensure the D17 port-domain federation exists; return its config (IDs for tests/UI).
+
+    D26: `assumptions` lets each demo port start from its own synthetic values and `owner`
+    names the model provider; both default to the D17 golden set, so existing callers are
+    unchanged.
+    """
     registry = ModelRegistry(db)
     fed = FederationService(db)
     values = DatasetValueService(db)
 
+    initial = dict(assumptions) if assumptions is not None else dict(DEFAULT_ASSUMPTIONS)
     datasets = {name: _ensure_dataset(db, name, fields) for name, fields in _DATASETS.items()}
-    versions = {spec["key"]: _ensure_version(db, registry, spec) for spec in _MODELS}
+    versions = {spec["key"]: _ensure_version(db, registry, spec, owner) for spec in _MODELS}
     assumptions = datasets[ASSUMPTIONS_DATASET]
 
     v = versions
@@ -340,7 +348,7 @@ def seed_port_domain(db: Session) -> dict:
     fed.ensure_binding(v["decision_summary"].id, d["decision_summary_output"].id, "output")
 
     if assumptions.current_value is None:
-        values.write_external(assumptions.id, dict(DEFAULT_ASSUMPTIONS),
+        values.write_external(assumptions.id, dict(initial),
                               source_type="seed", source_ref="port_domain_seed", triggered_by="seed")
     db.flush()
     return build_port_config(versions, datasets)
