@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Start Here — Federated Model Orchestration</title>
+<title>Start here — Federated Model Orchestration</title>
 <style>
 :root {
   --bg: #f8fafc; --surface: #ffffff; --surface2: #f1f5f9; --border: #e2e8f0;
@@ -110,7 +110,7 @@ th { background: var(--surface2); color: var(--text-secondary); font-size: 11px;
 <body>
 
 <header>
-  <h1>Start Here</h1>
+  <h1>Start here</h1>
   <a href="/ui">Decision workspace →</a>
   <a href="/ui/governance">Governance</a>
   <a href="/docs">API docs</a>
@@ -169,14 +169,14 @@ th { background: var(--surface2); color: var(--text-secondary); font-size: 11px;
   <p>
     A <strong>baseline</strong> is a named, executed snapshot of the port as everyone has
     agreed to describe it — the current assumptions, and the results every model produced
-    from them. The shipped baseline is <em>Golden Port Baseline</em>. It is the thing
+    from them. The shipped baseline is <em>Current operations</em>. It is the thing
     everything else is compared against.
   </p>
   <h3>A scenario is a question about the baseline</h3>
   <p>
     A <strong>scenario</strong> asks “what if one thing were different?”. It starts from the
     baseline and applies one or more <strong>overrides</strong> — a single assumption given a
-    different value. The shipped scenario is <em>Higher Bunker Price</em>, which overrides
+    different value. The shipped scenario is <em>Higher bunker price</em>, which overrides
     the in-port bunker price and leaves everything else alone.
   </p>
   <p class="muted">
@@ -212,7 +212,7 @@ th { background: var(--surface2); color: var(--text-secondary); font-size: 11px;
   <li>
     <h3>Download the workbook</h3>
     <p>
-      In the workspace, open <strong>Excel Assumptions</strong> and download the
+      In the workspace, open <strong>Excel assumptions</strong> and download the
       <code>.xlsx</code>. It is pre-filled with the values the platform holds right now, so
       the only difference after you edit it is the change you made.
     </p>
@@ -287,13 +287,13 @@ th { background: var(--surface2); color: var(--text-secondary); font-size: 11px;
 
 <h2>5 · Where the results appear, and why they moved</h2>
 <ul>
-  <li><strong>Decision Overview</strong> — the headline KPIs, baseline against scenario.</li>
+  <li><strong>Decision overview</strong> — the headline KPIs, baseline against scenario.</li>
   <li><strong>Comparison</strong> — every metric with its baseline value, scenario value,
       absolute change and percentage change.</li>
-  <li><strong>Impact &amp; Why</strong> — the chain of reasoning: which assumption changed,
+  <li><strong>Impact &amp; why</strong> — the chain of reasoning: which assumption changed,
       which model consumed it, what that model produced, and which KPI it landed in. This is
       the answer to “why did this number move?”.</li>
-  <li><strong>Sources &amp; Provenance</strong> — where each value came from: which workbook,
+  <li><strong>Sources &amp; provenance</strong> — where each value came from: which workbook,
       which fingerprint, which ingestion, which change event.</li>
   <li><strong>Execution</strong> — the actual runs: which models executed, in what order,
       how long they took, and whether any step failed.</li>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Federation Governance</title>
+<title>Federation governance</title>
 <style>
 :root {
   --bg: #f8fafc; --surface: #ffffff; --surface2: #f1f5f9; --border: #e2e8f0;
@@ -66,8 +66,8 @@ code { font-family: ui-monospace, monospace; font-size: 12px; color: var(--text-
 </head>
 <body>
 <header>
-  <h1>Federation Governance</h1>
-  <a href="/ui/start">&#9737; Start Here</a>
+  <h1>Federation governance</h1>
+  <a href="/ui/start">&#9737; Start here</a>
   <a href="/ui">&larr; Decision workspace</a>
   <a href="/docs">API docs</a>
 </header>
@@ -83,13 +83,13 @@ code { font-family: ui-monospace, monospace; font-size: 12px; color: var(--text-
   </div>
 
   <div class="note">
-    The <strong>Exposed Outputs</strong> table is the safe output boundary: it shows only
+    The <strong>Exposed outputs</strong> table is the safe output boundary: it shows only
     approved, non-expired fields of active participants — never whole datasets, and never
     scenario outputs (which are never auto-approved).
     <br><br>
     That is why the three tables do not agree, and the disagreement is the point: an
     approval held by an <em>inactive</em> participant, and a <em>revoked</em> approval, both
-    appear under Approved Outputs but are deliberately absent from Exposed Outputs.
+    appear under Approved outputs but are deliberately absent from Exposed outputs.
   </div>
 
   <div class="cards" id="summary"></div>
@@ -102,7 +102,7 @@ code { font-family: ui-monospace, monospace; font-size: 12px; color: var(--text-
   </section>
 
   <section>
-    <h2>Approved Outputs</h2>
+    <h2>Approved outputs</h2>
     <table id="approvals"><thead><tr>
       <th>Participant</th><th>Dataset</th><th>Field</th><th>Purpose</th>
       <th>Status</th><th>Approved</th><th>Expires</th>
@@ -110,7 +110,7 @@ code { font-family: ui-monospace, monospace; font-size: 12px; color: var(--text-
   </section>
 
   <section>
-    <h2>Exposed Outputs <span class="sub">(approved, effective)</span></h2>
+    <h2>Exposed outputs <span class="sub">(approved, effective)</span></h2>
     <table id="exposed"><thead><tr>
       <th>Participant</th><th>Dataset</th><th>Field</th><th>Value</th><th>Purpose</th>
     </tr></thead><tbody></tbody></table>

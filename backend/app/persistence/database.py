@@ -53,15 +53,38 @@ def _is_sqlite(url: str) -> bool:
 
 
 def _build_engine(url: str):
+    """Engine for SQLite (local) or PostgreSQL (shared — e.g. Supabase).
+
+    PostgreSQL notes (D25):
+      * prepare_threshold=None disables server-side prepared statements, which Supavisor /
+        PgBouncer transaction pooling cannot route. Harmless on a direct connection.
+      * pool_pre_ping + pool_recycle survive pooler/NAT idle reaping without surfacing a
+        stale-connection error to a user request.
+      * statement_timeout is set per connection only when NOT behind a transaction pooler,
+        where startup options are not reliably forwarded.
+      * DB_POOL_MODE=null → NullPool (no client-side pooling), for tiny/serverless hosts.
+    """
+    from sqlalchemy.pool import NullPool
+
+    from backend.app.config import settings as s
+
     kwargs: dict = {"echo": False}
 
     if _is_sqlite(url):
         kwargs["connect_args"] = {"check_same_thread": False}
     else:
-        kwargs["pool_size"] = 5
-        kwargs["max_overflow"] = 10
+        connect_args: dict = {"prepare_threshold": None, "connect_timeout": s.DB_CONNECT_TIMEOUT_S}
+        if not s.DB_TRANSACTION_POOLER and s.DB_STATEMENT_TIMEOUT_MS > 0:
+            connect_args["options"] = f"-c statement_timeout={s.DB_STATEMENT_TIMEOUT_MS}"
+        kwargs["connect_args"] = connect_args
         kwargs["pool_pre_ping"] = True
-        kwargs["connect_args"] = {"prepare_threshold": None}
+        if s.DB_POOL_MODE == "null":
+            kwargs["poolclass"] = NullPool
+        else:
+            kwargs["pool_size"] = s.DB_POOL_SIZE
+            kwargs["max_overflow"] = s.DB_MAX_OVERFLOW
+            kwargs["pool_timeout"] = s.DB_POOL_TIMEOUT_S
+            kwargs["pool_recycle"] = s.DB_POOL_RECYCLE_S
 
     eng = create_engine(url, **kwargs)
 
@@ -120,6 +143,8 @@ class Model(Base):
     model_type: Mapped[str] = mapped_column(String(64), nullable=False, default="python")
     # Lifecycle: draft → active → deprecated → retired
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft")
+    # D25: model-library card (purpose, formula, domain, provider, provenance…) as JSON.
+    card_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now, onupdate=_now
@@ -215,6 +240,8 @@ class Dataset(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # D25: business-readable label ("Port assumptions"); NULL → derived from name.
+    display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # JSON-encoded current value (or None before first run)
     current_value: Mapped[str | None] = mapped_column(Text, nullable=True)
     # SHA-256 hash of current_value for change detection

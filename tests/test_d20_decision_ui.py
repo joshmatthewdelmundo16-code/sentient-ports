@@ -150,8 +150,8 @@ class TestDecisionUIPage:
     def test_page_has_decision_sections(self, decision_client):
         client, _ = decision_client
         html = client.get("/ui").text
-        for anchor in ('id="decision-overview"', "Decision Overview", 'id="comparison-section"',
-                       "Scenario Comparison", 'id="kpi-cards"', 'id="impact-path-section"',
+        for anchor in ('id="decision-overview"', "Decision overview", 'id="comparison-section"',
+                       "Scenario comparison", 'id="kpi-cards"', 'id="impact-path-section"',
                        'id="assumptions-section"', 'id="why-section"', "/api/decision-config"):
             assert anchor in html, anchor
 
@@ -159,8 +159,8 @@ class TestDecisionUIPage:
         """Regression: D12/D14 anchors must survive the redesign."""
         client, _ = decision_client
         html = client.get("/ui").text
-        for anchor in ("Federation Graph", 'id="graph-container"', 'id="model-detail"',
-                       'id="impact-content"', "Impact Summary", 'id="results-section"',
+        for anchor in ("Federation graph", 'id="graph-container"', 'id="model-detail"',
+                       'id="impact-content"', "Impact summary", 'id="results-section"',
                        'id="lineage-section"', "Lineage", ".affected",
                        "dataset_values", "input_dataset_id"):
             assert anchor in html, anchor

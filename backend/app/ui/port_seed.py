@@ -62,10 +62,44 @@ _ILLUSTRATIVE = "Illustrative/synthetic — not calibrated real-world data or Se
 # Contract-field helpers
 # ---------------------------------------------------------------------------
 
+# D25: business-readable, sentence-case field labels. Presentation metadata stored with the
+# contract (FieldSpec.label) — never consulted by validation.
+FIELD_LABELS: dict[str, str] = {
+    BUNKER_PRICE: "Bunker price",
+    CALLS: "Annual vessel calls",
+    TEU_PER_CALL: "Average TEU per call",
+    BERTH_HOURS: "Average berth hours per call",
+    BERTHS: "Number of berths",
+    FUEL_PER_CALL: "Fuel burned in port per call",
+    EMISSION_FACTOR: "Emission factor",
+    "annual_teu": "Annual throughput",
+    "utilization_pct": "Berth utilization",
+    "congestion": "Congestion",
+    "annual_fuel_t": "Annual fuel burned",
+    "annual_fuel_cost_usd": "Annual fuel cost",
+    "fuel_cost_per_teu": "Fuel cost per TEU",
+    "annual_emissions_tco2": "Annual CO₂ emissions",
+    "emissions_per_teu": "CO₂ emissions per TEU",
+    "berth_utilization_pct": "Berth utilization",
+    "congestion_status": "Congestion status",
+}
+
+DATASET_LABELS: dict[str, str] = {
+    ASSUMPTIONS_DATASET: "Port assumptions",
+    "throughput_output": "Throughput results",
+    "berth_utilization_output": "Berth utilization results",
+    "port_fuel_cost_output": "Port fuel cost results",
+    "port_emissions_output": "Port emissions results",
+    "decision_summary_output": "Decision summary",
+}
+
+
 def _num(name: str, unit: str, *, nullable: bool = False, minimum: float | None = 0.0,
          maximum: float | None = None) -> dict[str, Any]:
     field: dict[str, Any] = {"name": name, "type": "float", "nullable": nullable,
                              "required": True, "unit": unit}
+    if name in FIELD_LABELS:
+        field["label"] = FIELD_LABELS[name]
     if minimum is not None:
         field["min"] = minimum
     if maximum is not None:
@@ -74,7 +108,10 @@ def _num(name: str, unit: str, *, nullable: bool = False, minimum: float | None 
 
 
 def _boolean(name: str) -> dict[str, Any]:
-    return {"name": name, "type": "boolean", "nullable": False, "required": True}
+    field: dict[str, Any] = {"name": name, "type": "boolean", "nullable": False, "required": True}
+    if name in FIELD_LABELS:
+        field["label"] = FIELD_LABELS[name]
+    return field
 
 
 _ASSUMPTION_FIELDS = [
@@ -114,7 +151,7 @@ _DATASETS: dict[str, list[dict[str, Any]]] = {
 # Model cards: purpose, formula, assumptions, I/O with units, adapter config.
 _MODELS = [
     {
-        "key": "throughput", "name": "Throughput",
+        "key": "throughput", "domain": "operational", "name": "Throughput",
         "purpose": "Annual container throughput from vessel calls.",
         "formula": "annual_teu = annual_vessel_calls * average_teu_per_call",
         "config": {"model": "throughput"},
@@ -123,7 +160,7 @@ _MODELS = [
         "output_dataset": "throughput_output",
     },
     {
-        "key": "berth_utilization", "name": "Berth Utilization",
+        "key": "berth_utilization", "domain": "operational", "name": "Berth utilization",
         "purpose": "Share of annual berth-hour capacity consumed by vessel calls.",
         "formula": "utilization_pct = (annual_vessel_calls * average_berth_hours_per_call) "
                    "/ (number_of_berths * 8760) * 100",
@@ -133,7 +170,7 @@ _MODELS = [
         "output_dataset": "berth_utilization_output",
     },
     {
-        "key": "port_fuel_cost", "name": "Port Fuel Cost",
+        "key": "port_fuel_cost", "domain": "economic", "name": "Port fuel cost",
         "purpose": "Annual in-port bunker fuel cost and cost intensity per TEU.",
         "formula": "annual_fuel_t = annual_vessel_calls * fuel_burned_in_port_per_call; "
                    "annual_fuel_cost_usd = annual_fuel_t * bunker_price; "
@@ -146,7 +183,7 @@ _MODELS = [
         "output_dataset": "port_fuel_cost_output",
     },
     {
-        "key": "port_emissions", "name": "Port Emissions",
+        "key": "port_emissions", "domain": "environmental", "name": "Port emissions",
         "purpose": "Annual in-port CO2 emissions and emission intensity per TEU.",
         "formula": "annual_emissions_tco2 = annual_vessel_calls * fuel_burned_in_port_per_call "
                    "* emission_factor; emissions_per_teu = annual_emissions_tco2 / annual_teu",
@@ -157,7 +194,7 @@ _MODELS = [
         "output_dataset": "port_emissions_output",
     },
     {
-        "key": "decision_summary", "name": "Decision Summary",
+        "key": "decision_summary", "domain": "decision", "name": "Decision summary",
         "purpose": "Fan-in of the four models into one decision-support KPI view.",
         "formula": "collect: annual_teu, berth_utilization_pct, annual_fuel_cost_usd, "
                    "fuel_cost_per_teu, annual_emissions_tco2, emissions_per_teu, congestion_status",
@@ -184,6 +221,8 @@ def _ensure_dataset(db: Session, name: str, fields: list[dict[str, Any]]) -> Dat
         ds = repo.get_by_name(name)
     except NotFoundError:
         ds = repo.add(Dataset(name=name, description=f"Port domain dataset — {name}"))
+    if not ds.display_name and name in DATASET_LABELS:
+        ds.display_name = DATASET_LABELS[name]
     contracts = DataContractManager(db)
     if contracts.get_active_contract(ds.id) is None:
         contracts.register_contract(
@@ -206,6 +245,8 @@ def _ensure_version(db: Session, registry: ModelRegistry, spec: dict[str, Any]) 
             name=spec["name"], owner=PORT_OWNER, model_type="port_domain",
             description=description, status="active",
         )
+    if not model.card_json:
+        model.card_json = json.dumps(model_card(spec))
     versions = ModelVersionRepository(db)
     try:
         version = versions.get_by_model_and_semver(model.id, "1.0.0")
@@ -223,6 +264,26 @@ def _ensure_version(db: Session, registry: ModelRegistry, spec: dict[str, Any]) 
         registry.activate_version(version.id)
     db.flush()
     return version
+
+
+def model_card(spec: dict[str, Any]) -> dict[str, Any]:
+    """Model-library card for one toy port model (D25). Honest by construction: every card
+    states the model is illustrative and uncalibrated."""
+    return {
+        "purpose": spec["purpose"],
+        "formula": spec["formula"],
+        "domain": spec.get("domain"),
+        "provider": "Platform (internal)",
+        "provider_kind": "internal",
+        "execution_method": "In-process Python function (port_domain adapter)",
+        "calibration": "illustrative",
+        "provenance": "Synthetic textbook arithmetic authored for this platform. "
+                      "Not calibrated against real port data.",
+        "governance_status": "reviewed",
+        "inputs": [{"name": n, "unit": u} for n, u in spec["inputs"]],
+        "outputs": [{"name": n, "unit": u} for n, u in spec["outputs"]],
+        "disclaimer": _ILLUSTRATIVE,
+    }
 
 
 def _identity_map(names: list[str]) -> dict[str, str]:

@@ -195,7 +195,9 @@ class TestHealthEndpoint:
         """
         resp = test_client.get("/", follow_redirects=False)
         assert resp.status_code in (302, 307, 308)
-        assert resp.headers["location"] == "/ui/start"
+        # D25: the React product at /app is the primary experience (PRIMARY_UI=legacy restores
+        # /ui/start). Either way / must be a redirect into the application, never JSON.
+        assert resp.headers["location"] in ("/app/", "/ui/start")
 
         landed = test_client.get("/")
         assert landed.status_code == 200

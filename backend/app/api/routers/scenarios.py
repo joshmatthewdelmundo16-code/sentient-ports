@@ -162,6 +162,17 @@ def list_overrides(
     return [OverrideOut.model_validate(o) for o in overrides]
 
 
+@router.delete("/scenarios/{scenario_id}/overrides/{override_id}", status_code=204,
+               summary="Remove one override from a scenario")
+def remove_override(
+    scenario_id: str, override_id: str, svc: ScenarioService = Depends(get_scenario_service),
+) -> None:
+    try:
+        svc.remove_override(scenario_id, override_id)
+    except MAPPED_ERRORS as exc:
+        raise to_http(exc)
+
+
 @router.post("/scenarios/{scenario_id}/execute", response_model=ScenarioRunOut, status_code=201,
              summary="Execute a scenario as one GraphRun (read-only: shared state not mutated)")
 def execute_scenario(

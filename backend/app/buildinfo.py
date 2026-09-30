@@ -47,6 +47,15 @@ CAPABILITY_ROUTES: dict[str, str] = {
     "execution.runs": "/api/executions",
     "federation.graph": "/api/graph",
     "lineage.result": "/api/lineage/{result_id}",
+    # D25 — React product and its read models.
+    "product.app": "/app/{path:path}",
+    "product.workspace": "/api/workspace",
+    "product.catalog": "/api/catalog",
+    "product.activity": "/api/activity",
+    "product.explanation": "/api/scenarios/{scenario_id}/explanation",
+    "product.run_compare": "/api/runs/compare",
+    "product.upload_impact": "/api/ingestions/{ingestion_id}/impact",
+    "platform.ready": "/ready",
 }
 
 
@@ -115,6 +124,8 @@ def build_info(app: Any) -> dict[str, Any]:
     Contains no secrets: the database is reported by family only, and PUBLIC_BASE_URL is
     whatever an operator configured (empty when the app has not been deployed anywhere).
     """
+    from backend.app.web import frontend_info
+
     caps = capabilities(app)
     return {
         "name": APP_NAME,
@@ -128,6 +139,7 @@ def build_info(app: Any) -> dict[str, Any]:
         "capabilities": caps,
         "missing_capabilities": sorted(k for k, ok in caps.items() if not ok),
         "route_count": len(route_paths(app)),
+        "frontend": frontend_info(),
     }
 
 

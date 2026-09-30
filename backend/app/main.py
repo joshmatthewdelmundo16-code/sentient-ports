@@ -28,7 +28,9 @@ from backend.app.config.settings import (
     AUTO_CREATE_SCHEMA,
     DATABASE_URL,
     DEMO_SEED_ENABLED,
+    DOCS_ENABLED,
     ENVIRONMENT,
+    PRIMARY_UI,
     STORAGE_ROOT,
 )
 from backend.app.persistence.database import SessionLocal, init_db
@@ -42,10 +44,12 @@ from backend.app.api.routers import (
     graph,
     lineage,
     models,
+    product,
     results,
     scenarios,
 )
 from backend.app.ui.router import router as ui_router
+from backend.app.web import mount_frontend, readiness
 
 # ---------------------------------------------------------------------------
 # Application instance
@@ -56,10 +60,13 @@ api = FastAPI(
     version=APP_VERSION,
     description=(
         "Federated Model Orchestration & Decision-Support Platform. "
-        "Demo tier — SQLite, no auth, local execution."
+        "React product at /app; this API is its only data source."
     ),
-    docs_url="/docs",
-    redoc_url="/redoc",
+    # D25: off in production unless DOCS_ENABLED — the docs pages load third-party scripts
+    # and enumerate the whole API surface.
+    docs_url="/docs" if DOCS_ENABLED else None,
+    redoc_url="/redoc" if DOCS_ENABLED else None,
+    openapi_url="/openapi.json" if DOCS_ENABLED else None,
 )
 
 
@@ -210,21 +217,28 @@ api.include_router(results.router)
 api.include_router(lineage.router)
 api.include_router(scenarios.router)
 api.include_router(governance.router)
+api.include_router(product.router)
 api.include_router(ui_router)
+mount_frontend(api)
 
 
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 
-@api.get("/", include_in_schema=False)
+@api.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
 def root_redirect() -> RedirectResponse:
     """Bare / opens the product, not the health JSON.
 
-    Before D24 this redirected to /health, so the first thing a non-developer saw when
-    they opened the server was a JSON blob. It now lands on the Start Here guide.
+    D25: the React product (/app) is the primary experience. PRIMARY_UI=legacy is the
+    rollback switch back to the D24 Start Here page; the legacy pages stay served at /ui
+    either way.
     """
-    return RedirectResponse(url="/ui/start")
+    from backend.app.web import frontend_info
+
+    # An unbuilt React bundle falls back to the legacy product rather than a 503 page.
+    legacy = PRIMARY_UI == "legacy" or not frontend_info()["built"]
+    return RedirectResponse(url="/ui/start" if legacy else "/app/")
 
 
 @api.get("/api/build-info", tags=["Platform"],
@@ -240,7 +254,22 @@ def get_build_info() -> dict:
     return build_info(api)
 
 
-@api.get("/health", tags=["Platform"])
+@api.api_route("/ready", methods=["GET", "HEAD"], tags=["Platform"],
+               summary="Readiness: database reachable and schema at this build's migration head")
+def ready() -> JSONResponse:
+    """503 until the database answers AND its Alembic revision matches this build.
+
+    Liveness is /health. Use this one for load-balancer readiness and deploy gates: a
+    container whose migrations failed, or that is pointed at an unmigrated database, reports
+    not-ready instead of serving requests against a schema it does not understand.
+    """
+    from backend.app.persistence.database import engine
+
+    ok, report = readiness(engine)
+    return JSONResponse(status_code=200 if ok else 503, content={"ready": ok, **report})
+
+
+@api.api_route("/health", methods=["GET", "HEAD"], tags=["Platform"])
 def health() -> JSONResponse:
     """
     Platform health check.

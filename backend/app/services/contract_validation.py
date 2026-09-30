@@ -43,6 +43,9 @@ class FieldSpec:
     minimum: float | None = None
     maximum: float | None = None
     unit: str | None = None
+    # D25: presentation metadata only — never consulted by validation.
+    label: str | None = None
+    description: str | None = None
 
 
 @dataclass(frozen=True)
@@ -129,6 +132,8 @@ def parse_schema(schema: Any) -> ContractSchema:
             minimum=minimum,
             maximum=maximum,
             unit=f.get("unit"),
+            label=f.get("label") if isinstance(f.get("label"), str) else None,
+            description=f.get("description") if isinstance(f.get("description"), str) else None,
         ))
 
     additional = schema.get("additional_fields", True)

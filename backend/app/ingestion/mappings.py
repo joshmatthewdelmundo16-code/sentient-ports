@@ -43,7 +43,7 @@ class SourceMapping:
 # field name, so the mapping bridges the two naming conventions.
 PORT_ASSUMPTIONS_V1 = SourceMapping(
     key="port_assumptions_v1",
-    description="Toy port assumptions (Assumptions!B2:B8) → port_assumptions dataset.",
+    description="Port assumptions workbook (Assumptions sheet, cells B2–B8)",
     cells=(
         CellMapping("Assumptions", "B2", ASSUMPTIONS_DATASET, "bunker_price"),
         CellMapping("Assumptions", "B3", ASSUMPTIONS_DATASET, "annual_vessel_calls"),

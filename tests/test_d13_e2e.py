@@ -63,7 +63,7 @@ class TestDemoScenarioE2E:
     def test_e2e_01_models_registered(self):
         with self._client() as client:
             names = {m["name"] for m in client.get("/api/models").json()}
-        assert names == {"Fuel Price", "Shipping Cost", "Operations Cost", "Emissions"}
+        assert names == {"Fuel price", "Shipping cost", "Operations cost", "Emissions"}
 
     def test_e2e_02_graph_topology_is_deterministic(self):
         with self._client() as client:
@@ -138,7 +138,7 @@ class TestDemoScenarioE2E:
         with self._client() as client:
             res = client.get("/ui")
         assert res.status_code == 200
-        assert "Federated Model Orchestration" in res.text
+        assert "Federated model orchestration" in res.text
 
     def test_e2e_10_demo_config_matches_seed(self):
         with self._client() as client:

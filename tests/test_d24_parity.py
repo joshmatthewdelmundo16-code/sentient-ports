@@ -124,7 +124,7 @@ class TestGovernanceRoute:
     def test_ui_governance_is_served(self, client):
         r = client.get("/ui/governance")
         assert r.status_code == 200
-        assert "Federation Governance" in r.text
+        assert "Federation governance" in r.text
 
     def test_ui_governance_has_no_trailing_slash_trap(self, client):
         # A redirect is fine; a 404 is not.
@@ -147,8 +147,11 @@ class TestBuildSelfReport:
 
     def test_build_info_is_served(self, client):
         info = client.get("/api/build-info").json()
-        assert info["phase"] == "D24"
-        assert info["version"].startswith("0.24")
+        # The build identifies itself; D25–D27 bumped both (the assertion follows the setting,
+        # so a future phase cannot silently ship with a stale label).
+        from backend.app.config.settings import APP_PHASE, APP_VERSION
+        assert info["phase"] == APP_PHASE
+        assert info["version"] == APP_VERSION
 
     def test_every_declared_capability_is_actually_served(self, client):
         info = client.get("/api/build-info").json()
@@ -197,13 +200,17 @@ class TestOnboarding:
     def test_start_here_page_is_served(self, client):
         r = client.get("/ui/start")
         assert r.status_code == 200
-        assert "Start Here" in r.text
+        assert "Start here" in r.text
 
     def test_root_opens_the_product_not_json(self, client):
-        """Before D24, / redirected to /health — a JSON blob as the first impression."""
+        """Before D24, / redirected to /health — a JSON blob as the first impression.
+
+        D25: the React product (/app) is now the primary experience; the legacy Start Here
+        page stays reachable at /ui/start and via PRIMARY_UI=legacy (see test_d25_product).
+        """
         r = client.get("/", follow_redirects=False)
         assert r.status_code in (307, 302)
-        assert r.headers["location"] == "/ui/start"
+        assert r.headers["location"] == "/app/"
 
     def test_start_here_is_linked_from_the_workspace(self, client):
         assert 'href="/ui/start"' in client.get("/ui").text

@@ -1,9 +1,9 @@
 """Seeds the demo federation (synthetic arithmetic, not a domain model).
 
     fuel_price_input (source dataset, contract: value ≥ 0 USD/t)
-        → Fuel Price (×1.0)      → fuel_price_output
-        → Shipping Cost (×2.0)   → shipping_cost_output
-        → Operations Cost (×1.5) → ops_cost_output
+        → Fuel price (×1.0)      → fuel_price_output
+        → Shipping cost (×2.0)   → shipping_cost_output
+        → Operations cost (×1.5) → ops_cost_output
         → Emissions (×0.5)       → emissions_output
 
 Everything needed to execute the chain is persisted: adapter type/config on each
@@ -31,9 +31,9 @@ INPUT_DATASET = "fuel_price_input"
 INITIAL_FUEL_PRICE = 100.0
 
 _CHAIN = [
-    {"name": "Fuel Price",      "scalar": 1.0, "dataset": "fuel_price_output",    "unit": "USD/t"},
-    {"name": "Shipping Cost",   "scalar": 2.0, "dataset": "shipping_cost_output", "unit": "synthetic index"},
-    {"name": "Operations Cost", "scalar": 1.5, "dataset": "ops_cost_output",      "unit": "synthetic index"},
+    {"name": "Fuel price",      "scalar": 1.0, "dataset": "fuel_price_output",    "unit": "USD/t"},
+    {"name": "Shipping cost",   "scalar": 2.0, "dataset": "shipping_cost_output", "unit": "synthetic index"},
+    {"name": "Operations cost", "scalar": 1.5, "dataset": "ops_cost_output",      "unit": "synthetic index"},
     {"name": "Emissions",       "scalar": 0.5, "dataset": "emissions_output",     "unit": "synthetic index"},
 ]
 

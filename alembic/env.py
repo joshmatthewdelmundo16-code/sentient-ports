@@ -11,7 +11,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from backend.app.config.settings import DATABASE_URL
+from backend.app.config.settings import DATABASE_URL, MIGRATION_DATABASE_URL
 from backend.app.persistence.database import Base
 
 config = context.config
@@ -20,7 +20,11 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Programmatic callers (e.g. migration tests) may pass an explicit URL via attributes.
-config.set_main_option("sqlalchemy.url", config.attributes.get("sqlalchemy_url") or DATABASE_URL)
+# D25: MIGRATION_DATABASE_URL (e.g. Supabase's session pooler or direct host) takes precedence
+# over DATABASE_URL (which may be the transaction pooler) for schema changes.
+# ConfigParser treats '%' as interpolation, so URL-encoded passwords must be escaped.
+_url = config.attributes.get("sqlalchemy_url") or MIGRATION_DATABASE_URL or DATABASE_URL
+config.set_main_option("sqlalchemy.url", _url.replace("%", "%%"))
 
 target_metadata = Base.metadata
 

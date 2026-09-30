@@ -87,15 +87,15 @@ class TestProductStructure:
         client, _ = decision_client
         html = client.get("/ui").text
         assert 'id="product-nav"' in html
-        for label in ("Overview", "Comparison", "Impact &amp; Why",
-                      "Sources &amp; Lineage", "Execution &amp; Governance"):
+        for label in ("Overview", "Comparison", "Impact &amp; why",
+                      "Sources &amp; lineage", "Execution &amp; governance"):
             assert label in html, label
 
     def test_has_new_d23_sections(self, decision_client):
         client, _ = decision_client
         html = client.get("/ui").text
-        for anchor in ('id="sources-section"', "Sources &amp; Provenance",
-                       'id="execution-governance-section"', "Execution &amp; Governance",
+        for anchor in ('id="sources-section"', "Sources &amp; provenance",
+                       'id="execution-governance-section"', "Execution &amp; governance",
                        'id="exec-readable-content"', 'id="governance-panel-content"',
                        'id="sources-content"'):
             assert anchor in html, anchor
@@ -127,16 +127,16 @@ class TestLegacyAnchorsPreserved:
     def test_d20_decision_anchors(self, decision_client):
         client, _ = decision_client
         html = client.get("/ui").text
-        for anchor in ('id="decision-overview"', "Decision Overview", 'id="comparison-section"',
-                       "Scenario Comparison", 'id="kpi-cards"', 'id="impact-path-section"',
+        for anchor in ('id="decision-overview"', "Decision overview", 'id="comparison-section"',
+                       "Scenario comparison", 'id="kpi-cards"', 'id="impact-path-section"',
                        'id="assumptions-section"', 'id="why-section"', "/api/decision-config"):
             assert anchor in html, anchor
 
     def test_d12_d14_legacy_anchors(self, decision_client):
         client, _ = decision_client
         html = client.get("/ui").text
-        for anchor in ("Federation Graph", 'id="graph-container"', 'id="model-detail"',
-                       'id="impact-content"', "Impact Summary", 'id="results-section"',
+        for anchor in ("Federation graph", 'id="graph-container"', 'id="model-detail"',
+                       'id="impact-content"', "Impact summary", 'id="results-section"',
                        'id="lineage-section"', "Lineage", ".affected",
                        "dataset_values", "input_dataset_id"):
             assert anchor in html, anchor
@@ -145,7 +145,7 @@ class TestLegacyAnchorsPreserved:
     def test_d12_word_anchors(self, decision_client):
         client, _ = decision_client
         html = client.get("/ui").text
-        for word in ("Federation", "Graph", "Execute", "Propagate", "Executions"):
+        for word in ("Federation", "Graph", "Execute", "Propagate", "executions"):
             assert word in html
 
 

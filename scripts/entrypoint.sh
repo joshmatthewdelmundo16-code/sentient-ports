@@ -13,6 +13,11 @@ set -eu
 : "${PORT:=8000}"
 : "${WEB_CONCURRENCY:=2}"
 : "${RUN_MIGRATIONS:=true}"
+# Which proxy addresses may set X-Forwarded-For/-Proto. Trusting '*' lets any client spoof
+# its IP (rate limiting and the audit trail rely on it), so the default trusts only a proxy
+# on the same host. On a PaaS whose edge proxy is the ONLY way in (Render, Fly, Cloud Run),
+# set FORWARDED_ALLOW_IPS='*' deliberately.
+: "${FORWARDED_ALLOW_IPS:=127.0.0.1}"
 
 cd /app
 
@@ -41,4 +46,4 @@ exec uvicorn backend.app.main:api \
   --port "${PORT}" \
   --workers "${WEB_CONCURRENCY}" \
   --proxy-headers \
-  --forwarded-allow-ips '*'
+  --forwarded-allow-ips "${FORWARDED_ALLOW_IPS}"

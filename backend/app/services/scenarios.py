@@ -193,6 +193,20 @@ class ScenarioService:
             for o in overrides
         ]
 
+    def remove_override(self, scenario_id: str, override_id: str) -> None:
+        """Delete one override of this scenario (D25). The scenario's last run is untouched —
+        it stays an exact record of what was run; re-running reflects the removal."""
+        self.get_scenario(scenario_id)
+        override = next(
+            (o for o in self._overrides.list_by_scenario(scenario_id) if o.id == override_id), None
+        )
+        if override is None:
+            raise ScenarioOverrideError(
+                f"Override {override_id!r} does not belong to scenario {scenario_id!r}."
+            )
+        self._db.delete(override)
+        self._db.flush()
+
     def list_overrides(self, scenario_id: str) -> list[ScenarioOverride]:
         self.get_scenario(scenario_id)
         return self._overrides.list_by_scenario(scenario_id)

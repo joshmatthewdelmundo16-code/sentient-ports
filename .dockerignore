@@ -36,3 +36,10 @@ build/
 .idea/
 Thumbs.db
 .DS_Store
+
+# Frontend: the image builds it from source in its own stage.
+frontend/node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+frontend/e2e-scratch.mjs

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Federated Model Orchestration</title>
+<title>Federated model orchestration</title>
 <style>
 :root {
   --bg: #f8fafc;
@@ -501,7 +501,7 @@ main {
 .tech-divider { display: flex; align-items: center; gap: 12px; margin: 8px 0 -8px; color: var(--text-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
 .tech-divider::before, .tech-divider::after { content: ""; flex: 1; border-top: 1px solid var(--border); }
 
-/* ── D24: stale-build banner, Start Here nav, guided Excel workflow ───────── */
+/* ── D24: stale-build banner, Start here nav, guided Excel workflow ───────── */
 .stale-banner {
   background: var(--warn-light, #fef3c7); color: var(--warn, #92400e);
   border-bottom: 2px solid var(--warn, #d97706);
@@ -571,7 +571,7 @@ main {
 <body>
 
 <header>
-  <h1>Federated Model Orchestration</h1>
+  <h1>Federated model orchestration</h1>
   <div class="header-stats">
     <span id="health-badge" class="badge badge-info">checking…</span>
     <span id="stat-models" class="header-stat"></span>
@@ -588,17 +588,17 @@ main {
 
 <!-- ══ Product navigation — the decision workflow, left to right ══════════════ -->
 <nav class="product-nav" id="product-nav" aria-label="Decision workflow">
-  <a href="/ui/start" class="pnav-item pnav-start">&#9737; Start Here</a>
+  <a href="/ui/start" class="pnav-item pnav-start">&#9737; Start here</a>
   <span class="pnav-sep">›</span>
   <a href="#decision-overview" class="pnav-item" data-target="decision-overview">Overview</a>
   <span class="pnav-sep">›</span>
-  <a href="#excel-section" class="pnav-item" data-target="excel-section">Excel Assumptions</a>
+  <a href="#excel-section" class="pnav-item" data-target="excel-section">Excel assumptions</a>
   <span class="pnav-sep">›</span>
   <a href="#comparison-section" class="pnav-item" data-target="comparison-section">Comparison</a>
   <span class="pnav-sep">›</span>
-  <a href="#impact-path-section" class="pnav-item" data-target="impact-path-section">Impact &amp; Why</a>
+  <a href="#impact-path-section" class="pnav-item" data-target="impact-path-section">Impact &amp; why</a>
   <span class="pnav-sep">›</span>
-  <a href="#sources-section" class="pnav-item" data-target="sources-section">Sources &amp; Lineage</a>
+  <a href="#sources-section" class="pnav-item" data-target="sources-section">Sources &amp; lineage</a>
   <span class="pnav-sep">›</span>
   <a href="#execution-governance-section" class="pnav-item" data-target="execution-governance-section">Execution</a>
   <span class="pnav-sep">›</span>
@@ -688,12 +688,12 @@ main {
 
   <!-- ══ DECISION WORKSPACE (D20) ═══════════════════════════ -->
 
-  <!-- ── Decision Overview ────────────────────────────────── -->
+  <!-- ── Decision overview ────────────────────────────────── -->
   <section class="section decision-hero" id="decision-overview">
     <div class="section-head">
       <div>
-        <h2>Decision Overview</h2>
-        <p class="section-sub" id="decision-vs-label">Baseline vs Scenario</p>
+        <h2>Decision overview</h2>
+        <p class="section-sub" id="decision-vs-label">Baseline vs scenario</p>
       </div>
       <div class="decision-selectors" id="decision-selectors" hidden>
         <div class="form-field">
@@ -713,11 +713,11 @@ main {
     </div>
   </section>
 
-  <!-- ── Excel Assumptions — guided workflow (D24) ────────── -->
+  <!-- ── Excel assumptions — guided workflow (D24) ────────── -->
   <section class="section" id="excel-section">
     <div class="section-head">
       <div>
-        <h2>Excel Assumptions</h2>
+        <h2>Excel assumptions</h2>
         <p class="section-sub">
           Change a number in a spreadsheet and watch it travel through every dependent
           model. Nothing is written until you press Commit.
@@ -789,11 +789,11 @@ main {
     </details>
   </section>
 
-  <!-- ── Scenario Comparison ──────────────────────────────── -->
+  <!-- ── Scenario comparison ──────────────────────────────── -->
   <section class="section" id="comparison-section" hidden>
     <div class="section-head">
       <div>
-        <h2>Scenario Comparison</h2>
+        <h2>Scenario comparison</h2>
         <p class="section-sub">Every metric — baseline, scenario and change. Values load from the comparison API.</p>
       </div>
     </div>
@@ -804,7 +804,7 @@ main {
   <section class="section" id="variance-section" hidden>
     <div class="section-head">
       <div>
-        <h2>Change Magnitude</h2>
+        <h2>Change magnitude</h2>
         <p class="section-sub">Baseline vs scenario for the outputs that changed</p>
       </div>
     </div>
@@ -815,8 +815,8 @@ main {
   <section class="section" id="impact-path-section" hidden>
     <div class="section-head">
       <div>
-        <h2>Dependency &amp; Impact Path</h2>
-        <p class="section-sub">From the changed assumption through affected models to Decision Summary</p>
+        <h2>Dependency &amp; impact path</h2>
+        <p class="section-sub">From the changed assumption through affected models to Decision summary</p>
       </div>
     </div>
     <div id="impact-path-content"></div>
@@ -830,7 +830,7 @@ main {
   <!-- ── Assumptions / Source + Why ───────────────────────── -->
   <div class="dual-panel">
     <section class="section" id="assumptions-section" hidden>
-      <div class="panel-title">Assumptions &amp; Source</div>
+      <div class="panel-title">Assumptions &amp; source</div>
       <div id="assumptions-content"></div>
     </section>
     <section class="section" id="why-section" hidden>
@@ -843,7 +843,7 @@ main {
   <section class="section" id="sources-section">
     <div class="section-head">
       <div>
-        <h2>Sources &amp; Provenance</h2>
+        <h2>Sources &amp; provenance</h2>
         <p class="section-sub">Where the baseline assumptions came from — ingested workbooks and change history</p>
       </div>
     </div>
@@ -854,7 +854,7 @@ main {
   <section class="section" id="execution-governance-section">
     <div class="section-head">
       <div>
-        <h2>Execution &amp; Governance</h2>
+        <h2>Execution &amp; governance</h2>
         <p class="section-sub">What produced these values, and what is approved for external exposure</p>
       </div>
     </div>
@@ -870,13 +870,13 @@ main {
     </div>
   </section>
 
-  <div class="tech-divider" id="advanced-zone">Advanced &amp; Technical Detail</div>
+  <div class="tech-divider" id="advanced-zone">Advanced &amp; technical detail</div>
 
-  <!-- ── Federation Graph ─────────────────────────────────── -->
+  <!-- ── Federation graph ─────────────────────────────────── -->
   <section class="section" id="graph-section">
     <div class="section-head">
       <div>
-        <h2>Federation Graph</h2>
+        <h2>Federation graph</h2>
         <p class="section-sub">Model dependencies and execution topology</p>
       </div>
     </div>
@@ -891,31 +891,31 @@ main {
   <!-- ── Actions + Impact ─────────────────────────────────── -->
   <div class="dual-panel">
     <section class="section">
-      <div class="panel-title">Execute &amp; Propagate</div>
+      <div class="panel-title">Execute &amp; propagate</div>
       <div class="action-block">
-        <div class="action-label">Initial Graph Execution</div>
+        <div class="action-label">Initial graph execution</div>
         <div class="form-inline">
           <div class="form-field">
-            <label for="fuel-price">Fuel Price</label>
+            <label for="fuel-price">Fuel price</label>
             <input type="number" id="fuel-price" value="100" min="1" step="1">
           </div>
-          <button class="btn btn-primary" id="run-btn" onclick="runGraph()">&#9654; Run Graph</button>
+          <button class="btn btn-primary" id="run-btn" onclick="runGraph()">&#9654; Run graph</button>
         </div>
       </div>
       <hr class="divider">
       <div class="action-block">
-        <div class="action-label">Change &amp; Propagate</div>
+        <div class="action-label">Change &amp; propagate</div>
         <div class="form-inline">
           <div class="form-field">
-            <label for="new-fuel-price">New Fuel Price</label>
+            <label for="new-fuel-price">New fuel price</label>
             <input type="number" id="new-fuel-price" value="120" min="1" step="1">
           </div>
-          <button class="btn btn-warn" id="propagate-btn" onclick="propagate()">&#9889; Apply &amp; Propagate</button>
+          <button class="btn btn-warn" id="propagate-btn" onclick="propagate()">&#9889; Apply &amp; propagate</button>
         </div>
       </div>
     </section>
     <section class="section">
-      <div class="panel-title">Impact Summary</div>
+      <div class="panel-title">Impact summary</div>
       <div id="impact-content">
         <p class="placeholder">Run the graph or propagate a change to see the impact on the federation.</p>
       </div>
@@ -944,7 +944,7 @@ main {
   <!-- ── History ──────────────────────────────────────────── -->
   <section class="section" id="history-section">
     <div class="section-head section-toggle" onclick="toggleHistory()">
-      <h2>Recent Executions <span id="history-toggle" class="toggle-icon">&#9656;</span></h2>
+      <h2>Recent executions <span id="history-toggle" class="toggle-icon">&#9656;</span></h2>
       <button class="btn btn-ghost" onclick="event.stopPropagation(); loadHistory()" style="font-size:12px;padding:5px 12px;">&#8635; Refresh</button>
     </div>
     <div id="history-content" hidden></div>
@@ -1178,7 +1178,7 @@ function selectNode(vid) {
     (version ? '<div><div class="detail-label">Version</div><div class="detail-val">' + esc(version.semver) + ' ' + (version.is_active ? statusBadge("active") : '') + '</div></div>' : '') +
     '<div><div class="detail-label">Upstream</div><div class="detail-val">' + (upstream.length ? upstream.map(esc).join(", ") : "None (source)") + '</div></div>' +
     '<div><div class="detail-label">Downstream</div><div class="detail-val">' + (downstream.length ? downstream.map(esc).join(", ") : "None (terminal)") + '</div></div>' +
-    (curr ? '<div><div class="detail-label">Latest Value</div><div class="detail-val" style="font-size:20px;font-weight:800;color:var(--accent);">' +
+    (curr ? '<div><div class="detail-label">Latest value</div><div class="detail-val" style="font-size:20px;font-weight:800;color:var(--accent);">' +
     (typeof curr.value === "number" ? curr.value : esc(String(curr.value))) + '</div></div>' : '') +
     (model && model.description ? '<div style="grid-column:1/-1"><div class="detail-label">Description</div><div class="detail-val">' + esc(model.description) + '</div></div>' : '') +
     '</div>' +
@@ -1338,7 +1338,7 @@ function showImpact(state, data, errorMsg, oldVal, newVal) {
       '<div class="impact-status ' + (data.success ? "success" : "error") + '">' +
       (data.success ? "✓ Propagation succeeded" : "✗ Propagation failed") + '</div>' +
       (oldVal != null && newVal != null ?
-        '<div class="impact-change"><span class="impact-change-label">Fuel Price</span>' +
+        '<div class="impact-change"><span class="impact-change-label">Fuel price</span>' +
         '<span class="impact-change-values">' + oldVal + ' → ' + newVal + '</span></div>' : '') +
       '<div class="impact-stats">' +
       '<div><div class="impact-stat-value">' + affected + '</div><div class="impact-stat-label">Affected</div></div>' +
@@ -1347,7 +1347,7 @@ function showImpact(state, data, errorMsg, oldVal, newVal) {
       '</div>';
   } else if (state === "unchanged") {
     el.innerHTML =
-      '<div class="impact-status success">No change — Fuel Price is already ' + esc(newVal) + '</div>' +
+      '<div class="impact-status success">No change — Fuel price is already ' + esc(newVal) + '</div>' +
       '<p class="placeholder">The dataset value is identical, so nothing was re-executed.</p>';
   } else if (state === "error") {
     el.innerHTML = '<div class="impact-status error">✗ ' + esc(errorMsg || "Unknown error") + '</div>';
@@ -1446,7 +1446,7 @@ async function showResultLineage(resultId) {
         '</span><span class="lineage-edge-arrow">→</span><span class="mono">' +
         shortId(e.target_result_id) + '</span></div>';
     }).join("");
-    el.innerHTML = '<div class="lineage-detail-card"><h4>Data Lineage for ' + shortId(resultId) + '</h4>' + rows + '</div>';
+    el.innerHTML = '<div class="lineage-detail-card"><h4>Data lineage for ' + shortId(resultId) + '</h4>' + rows + '</div>';
   } catch (e) {
     el.innerHTML = '<div class="alert alert-error">Lineage: ' + esc(e.message) + '</div>';
   }
@@ -1540,12 +1540,12 @@ let scenarioResultsCache = {}; // run_id -> [ResultOut]
 
 const FIELD_LABELS = {
   annual_teu: "Annual TEU",
-  berth_utilization_pct: "Berth Utilization",
-  utilization_pct: "Berth Utilization",
-  annual_fuel_cost_usd: "Annual Fuel Cost",
-  annual_fuel_t: "Annual Fuel Burned",
-  fuel_cost_per_teu: "Fuel Cost / TEU",
-  annual_emissions_tco2: "Annual Emissions",
+  berth_utilization_pct: "Berth utilization",
+  utilization_pct: "Berth utilization",
+  annual_fuel_cost_usd: "Annual fuel cost",
+  annual_fuel_t: "Annual fuel burned",
+  fuel_cost_per_teu: "Fuel cost / TEU",
+  annual_emissions_tco2: "Annual emissions",
   emissions_per_teu: "Emissions / TEU",
   congestion: "Congestion",
   congestion_status: "Congestion",
@@ -2150,7 +2150,7 @@ async function commitWorkbook() {
       " (change event <code>" + esc(String(r.change_event_id).slice(0, 8)) + "</code>)");
     chain.push("<strong>Propagated</strong> — every dependent model re-executed in graph run <code>" +
       esc(String(r.graph_run_id).slice(0, 8)) + "</code>");
-    chain.push("<strong>Results published</strong> — the KPIs in Decision Overview and " +
+    chain.push("<strong>Results published</strong> — the KPIs in Decision overview and " +
       "Comparison below now reflect this workbook");
   } else {
     chain.push("<strong>No change</strong> — the values matched what was already held, so " +
@@ -2163,7 +2163,7 @@ async function commitWorkbook() {
       ? "<strong>Committed and propagated.</strong> The change travelled the whole chain:"
       : "<strong>Committed — nothing changed.</strong>") + "</div>" +
     '<ul class="xl-chain">' + chain.map(function (c) { return "<li>" + c + "</li>"; }).join("") + "</ul>" +
-    '<p class="xl-hint">Sources &amp; Provenance below now lists this ingestion. ' +
+    '<p class="xl-hint">Sources &amp; provenance below now lists this ingestion. ' +
     "Execution shows the graph run it triggered.</p>";
 
   xlSetSteps(6, 0);

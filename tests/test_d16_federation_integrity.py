@@ -196,8 +196,8 @@ class TestDemoFromPersistedConfig:
     def test_seed_upgrades_a_pre_d16_database(self, db):
         """A D15-style chain (no adapter config, bindings, contracts) is upgraded in place."""
         vids, dids = [], []
-        for name, ds_name in [("Fuel Price", "fuel_price_output"), ("Shipping Cost", "shipping_cost_output"),
-                              ("Operations Cost", "ops_cost_output"), ("Emissions", "emissions_output")]:
+        for name, ds_name in [("Fuel price", "fuel_price_output"), ("Shipping cost", "shipping_cost_output"),
+                              ("Operations cost", "ops_cost_output"), ("Emissions", "emissions_output")]:
             m = Model(name=name, owner="demo", model_type="synthetic", status="active")
             db.add(m)
             db.flush()

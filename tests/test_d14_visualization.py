@@ -46,7 +46,7 @@ class TestD14UIPage:
 
     def test_page_contains_federation_title(self, seeded_client):
         client, _ = seeded_client
-        assert "Federated Model Orchestration" in client.get("/ui").text
+        assert "Federated model orchestration" in client.get("/ui").text
 
     def test_page_uses_dataset_driven_api(self, seeded_client):
         client, _ = seeded_client
@@ -59,7 +59,7 @@ class TestD14UIPage:
 class TestD14FederationSummary:
     def test_page_has_graph_section(self, seeded_client):
         client, _ = seeded_client
-        assert "Federation Graph" in client.get("/ui").text
+        assert "Federation graph" in client.get("/ui").text
 
     def test_models_endpoint_returns_4(self, seeded_client):
         client, _ = seeded_client
@@ -149,7 +149,7 @@ class TestD14ImpactSummary:
         client, _ = seeded_client
         html = client.get("/ui").text
         assert 'id="impact-content"' in html
-        assert "Impact Summary" in html
+        assert "Impact summary" in html
 
 
 class TestD14Results:

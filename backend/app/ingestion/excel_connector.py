@@ -75,10 +75,40 @@ def read_cells(workbook_bytes: bytes, mapping: SourceMapping) -> dict[tuple[str,
         values_wb.close()
 
 
-def _load(workbook_bytes: bytes, *, data_only: bool):
+# D25 archive limits. An .xlsx is a zip; a small upload can expand enormously
+# (decompression bomb), so the archive is checked before openpyxl parses anything.
+MAX_UNCOMPRESSED_BYTES = 64 * 1024 * 1024
+MAX_ARCHIVE_ENTRIES = 2000
+
+
+def check_archive(workbook_bytes: bytes) -> None:
+    """Reject archives that are malformed, oversized when expanded, or carry macros."""
     try:
+        with zipfile.ZipFile(io.BytesIO(workbook_bytes)) as zf:
+            infos = zf.infolist()
+    except (zipfile.BadZipFile, OSError, ValueError) as exc:
+        raise WorkbookUnreadableError(f"Workbook could not be read: {exc}") from exc
+    if len(infos) > MAX_ARCHIVE_ENTRIES:
+        raise WorkbookUnreadableError(
+            f"Workbook has {len(infos)} internal parts; the limit is {MAX_ARCHIVE_ENTRIES}.")
+    total = sum(i.file_size for i in infos)
+    if total > MAX_UNCOMPRESSED_BYTES:
+        raise WorkbookUnreadableError(
+            f"Workbook expands to {total} bytes; the limit is {MAX_UNCOMPRESSED_BYTES}.")
+    names = {i.filename.lower() for i in infos}
+    if any(n.endswith("vbaproject.bin") for n in names):
+        raise WorkbookUnreadableError(
+            "Workbook contains a macro (VBA) project. Macro-enabled content is not accepted; "
+            "save a plain .xlsx without macros and upload that.")
+
+
+def _load(workbook_bytes: bytes, *, data_only: bool):
+    check_archive(workbook_bytes)
+    try:
+        # keep_links=False: external workbook links are neither read nor followed.
         return openpyxl.load_workbook(
             io.BytesIO(workbook_bytes), read_only=True, data_only=data_only, keep_vba=False,
+            keep_links=False,
         )
     except (InvalidFileException, zipfile.BadZipFile, KeyError, OSError) as exc:
         raise WorkbookUnreadableError(f"Workbook could not be read: {exc}") from exc

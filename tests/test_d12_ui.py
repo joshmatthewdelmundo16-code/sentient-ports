@@ -34,7 +34,7 @@ from tests.demo_support import (
     db_override, make_engine, propagate_body, run_body, seed_demo, version_ids,
 )
 
-_NAMES = {"Fuel Price", "Shipping Cost", "Operations Cost", "Emissions"}
+_NAMES = {"Fuel price", "Shipping cost", "Operations cost", "Emissions"}
 
 
 @pytest.fixture
@@ -69,7 +69,7 @@ class TestUIPage:
     def test_ui_page_has_nav_tabs(self, demo):
         with _client() as client:
             html = client.get("/ui").text
-        for word in ("Federation", "Graph", "Execute", "Propagate", "Executions"):
+        for word in ("Federation", "Graph", "Execute", "Propagate", "executions"):
             assert word in html
 
     def test_ui_page_has_demo_scripts(self, demo):

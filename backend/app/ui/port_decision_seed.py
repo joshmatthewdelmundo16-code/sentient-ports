@@ -27,8 +27,8 @@ from backend.app.persistence.scenario_repository import (
 from backend.app.services.scenarios import ScenarioService
 from backend.app.ui.port_seed import BUNKER_PRICE, seed_port_domain
 
-BASELINE_NAME = "Golden Port Baseline"
-SCENARIO_NAME = "Higher Bunker Price"
+BASELINE_NAME = "Current operations"
+SCENARIO_NAME = "Higher bunker price"
 # ×1.25 of the D17 golden baseline bunker price (DEFAULT_ASSUMPTIONS bunker_price = 600).
 SCENARIO_BUNKER_PRICE = 750.0
 
