@@ -8,7 +8,7 @@
     }
   },
   "rewrites": [
-    { "source": "/(.*)", "destination": "/api/index" }
+    { "source": "/(.*)", "destination": "/api/index?__vpath=$1" }
   ],
   "env": {
     "ENVIRONMENT": "production",
