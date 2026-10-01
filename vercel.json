@@ -7,8 +7,9 @@
   "outputDirectory": "public",
   "functions": {
     "api/index.py": {
-      "runtime": "@vercel/python",
-      "maxDuration": 30
+      "runtime": "@vercel/python@3.0.7",
+      "maxDuration": 30,
+      "includeFiles": "backend/**"
     }
   },
   "rewrites": [
