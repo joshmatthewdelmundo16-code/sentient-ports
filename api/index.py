@@ -49,23 +49,6 @@ class _LazyApp:
             await send({"type": "http.response.body", "body": body})
             return
 
-        # Echo path for quick sanity-check — remove once routing confirmed working.
-        if scope.get("path") == "/_debug":
-            import json
-            body = json.dumps({
-                "path": scope.get("path"),
-                "raw_path": scope.get("raw_path", b"").decode(errors="replace"),
-                "query_string": scope.get("query_string", b"").decode(errors="replace"),
-                "app_loaded": self._app is not None,
-            }).encode()
-            headers = [
-                [b"content-type", b"application/json"],
-                [b"content-length", str(len(body)).encode()],
-            ]
-            await send({"type": "http.response.start", "status": 200, "headers": headers})
-            await send({"type": "http.response.body", "body": body})
-            return
-
         await self._app(scope, receive, send)
 
 
