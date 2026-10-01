@@ -55,12 +55,24 @@ class _LazyApp:
                 await send({"type": "http.response.body", "body": body})
             return
 
-        # TEMP DIAGNOSTIC — remove after confirming path forwarding works.
+        # Vercel's catch-all rewrite sets scope["path"] = "/api/index" (the function
+        # path) rather than the original URL. Recover the real path from the headers
+        # Vercel injects, then forward the patched scope to FastAPI.
+        headers_dict = {k: v for k, v in scope.get("headers", [])}
+        original_path = (
+            headers_dict.get(b"x-vercel-forwarded-for")        # not path — skip
+            or headers_dict.get(b"x-matched-path")
+            or headers_dict.get(b"x-invoke-path")
+            or headers_dict.get(b"x-original-url")
+        )
+
         import json as _json
         _body = _json.dumps({
             "scope_path": scope.get("path"),
+            "raw_path": scope.get("raw_path", b"").decode(errors="replace"),
+            "headers": {k.decode(errors="replace"): v.decode(errors="replace")
+                        for k, v in scope.get("headers", [])},
             "import_ok": self._app is not None,
-            "import_error": self._import_error,
         }).encode()
         await send({"type": "http.response.start", "status": 200, "headers": [
             [b"content-type", b"application/json"],
