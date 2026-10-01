@@ -50,6 +50,11 @@ from backend.app.api.routers import (
     scenarios,
 )
 from backend.app.api.routers import auth as auth_routes
+from backend.app.api.routers import connectors as connector_routes
+from backend.app.api.routers import library as library_routes
+from backend.app.api.routers import live as live_routes
+from backend.app.api.routers import network as network_routes
+from backend.app.api.routers import planning as planning_routes
 from backend.app.security.auth import AuthConfigError, effective_auth_mode, request_context
 from backend.app.security.middleware import SecurityMiddleware
 from backend.app.security.tenancy import TenantViolation
@@ -115,6 +120,11 @@ def on_startup() -> None:
         decision_state.config = {}
         log.info("Demo seeding disabled (DEMO_SEED_ENABLED=false) — no demo rows written.")
 
+    from backend.app.config import settings as _s
+    if _s.POLL_SCHEDULER_ENABLED:
+        from backend.app.connectors import scheduler
+        scheduler.start()
+
     missing = missing_capabilities(api)
     if missing:
         log.warning("Build is missing expected capabilities: %s", ", ".join(missing))
@@ -136,9 +146,6 @@ def _seed_network() -> None:
     from backend.app.persistence.database import engine
     from backend.app.ui import decision_state, demo_state
 
-    if engine.dialect.name != "sqlite":
-        log.info("Network demo skipped (non-SQLite database).")
-        return
     from backend.app.ui.network_seed import seed_network_demo
 
     db = SessionLocal()
@@ -256,9 +263,14 @@ def _seed_governance() -> None:
 _SCOPED = [Depends(request_context)]
 for _r in (models.router, contracts.router, datasets.router, ingestions.router, graph.router,
            executions.router, changes.router, results.router, lineage.router, scenarios.router,
-           governance.router, product.router):
+           governance.router, product.router,
+           # D27
+           network_routes.router, library_routes.router, connector_routes.router,
+           planning_routes.router, live_routes.router):
     api.include_router(_r, dependencies=_SCOPED)
 api.include_router(auth_routes.router)
+# Signed webhooks authenticate by HMAC signature, not by session (connectors.public).
+api.include_router(connector_routes.public)
 api.include_router(ui_router)
 mount_frontend(api)
 api.add_middleware(SecurityMiddleware)
@@ -310,6 +322,14 @@ def get_build_info() -> dict:
     that produced the D24 `/ui/governance` 404.
     """
     return build_info(api)
+
+
+@api.get("/api/capabilities", tags=["Platform"], dependencies=[Depends(request_context)],
+         summary="What this platform implements, honestly classified, with evidence")
+def get_capabilities() -> dict:
+    from backend.app.capabilities import registry
+
+    return registry(api)
 
 
 @api.api_route("/ready", methods=["GET", "HEAD"], tags=["Platform"],
