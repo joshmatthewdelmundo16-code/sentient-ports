@@ -5,6 +5,12 @@
   "installCommand": "cd frontend && npm install",
   "buildCommand": "cd frontend && npx vite build && cd .. && mkdir -p public/app && cp -r frontend/dist/* public/app/",
   "outputDirectory": "public",
+  "functions": {
+    "api/index.py": {
+      "runtime": "@vercel/python",
+      "maxDuration": 30
+    }
+  },
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/index" },
     { "source": "/health", "destination": "/api/index" },
