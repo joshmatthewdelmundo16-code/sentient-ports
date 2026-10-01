@@ -4,13 +4,41 @@ import { useExplanation, useExposedOutputs, useFederationMap, useRunScenario } f
 import type { Explanation } from '../../api/types'
 import { useScope } from '../../app/scope'
 import { useSelection } from '../../app/selection'
-import { formatDateTime, formatPct, formatTransition, sourceLabel } from '../../shared/format'
-import { sourcesFor } from '../../shared/ImpactGraph'
+import { formatDateTime, formatPct, formatTransition, formatValue, sourceLabel } from '../../shared/format'
+import { ImpactGraph, sourcesFor } from '../../shared/ImpactGraph'
 import { Callout, Card, EmptyState, ErrorState, Loading, PageHeader, StatusBadge, TechnicalDetails } from '../../shared/ui'
 import { headlineMetrics, joinNames, KpiCard } from '../common'
 
 function relative(from: unknown, to: unknown): number | null {
   return typeof from === 'number' && typeof to === 'number' && from !== 0 ? (to - from) / from : null
+}
+
+function NarrativeSummary({ ex }: { ex: Explanation }) {
+  const changes = ex.changes
+  const changedOutputs = ex.comparison.metrics.filter((m) => m.changed && m.terminal)
+  const unchangedOutputs = ex.comparison.metrics.filter((m) => !m.changed && m.terminal)
+  if (!changes.length) return null
+
+  const inputParts = changes.map((c) => {
+    const rel = relative(c.baseline_value, c.scenario_value)
+    return `${c.field_label} ${rel !== null && rel > 0 ? 'increased' : rel !== null && rel < 0 ? 'decreased' : 'changed'} ${rel !== null ? `by ${formatPct(Math.abs(rel))}` : ''} (${formatTransition(c.baseline_value, c.scenario_value, c.unit)})`
+  })
+
+  const movedParts = changedOutputs.map((m) =>
+    `${m.field_label} ${m.direction === 'increase' ? 'increased' : m.direction === 'decrease' ? 'decreased' : 'changed'} from ${formatValue(m.baseline, m.unit)} to ${formatValue(m.scenario, m.unit)}`
+  )
+
+  const steadyNames = unchangedOutputs.map((m) => m.field_label)
+
+  return (
+    <Callout tone="neutral" title="Impact summary">
+      <p style={{ margin: 0 }}>
+        {joinNames(inputParts)}.{' '}
+        {movedParts.length ? <>As a result, {joinNames(movedParts)}.</> : null}{' '}
+        {steadyNames.length ? <>{joinNames(steadyNames)} {steadyNames.length === 1 ? 'remains' : 'remain'} unchanged.</> : null}
+      </p>
+    </Callout>
+  )
 }
 
 export function WhySummary({ ex }: { ex: Explanation }) {
@@ -55,7 +83,7 @@ export function DecisionPage() {
   if (!workspace || !baseline) {
     return (
       <div className="stack-lg">
-        <PageHeader title="Decision overview" />
+        <PageHeader title="Decision Overview" />
         <EmptyState title="No baseline in this scope yet">
           A baseline is an authoritative run of this organization's models. Once one exists, this page compares scenarios against it.
         </EmptyState>
@@ -71,7 +99,7 @@ export function DecisionPage() {
   return (
     <div className="stack-lg">
       <PageHeader
-        title="Decision overview"
+        title="Decision Overview"
         description="The baseline you are comparing against, the scenario you are evaluating, what changed, and what that did to the results."
         actions={<Link className="btn" to="/scenarios">Change assumptions</Link>}
       />
@@ -137,10 +165,22 @@ export function DecisionPage() {
                   <h2 id="impact-h">Resulting impact</h2>
                   <span className="small muted">{ex.data.comparison.changed_count} of {ex.data.comparison.metrics.length} recorded results changed</span>
                 </div>
-                <div className="grid-4">
+                <NarrativeSummary ex={ex.data} />
+                <div className="grid-4" style={{ marginTop: 12 }}>
                   {metrics.map((m) => <KpiCard key={`${m.dataset_id}:${m.field}`} metric={m} />)}
                 </div>
               </section>
+
+              {map.data ? (
+                <section aria-labelledby="ripple-h" className="ripple-canvas">
+                  <div className="row-between" style={{ marginBottom: 12 }}>
+                    <h2 id="ripple-h">How The Change Rippled Through The Models</h2>
+                    <span className="small muted">Source data → models → results · the highlighted path is what this change touched.</span>
+                  </div>
+                  <ImpactGraph map={map.data} focusVersionId={baseline.target_version_id} explanation={ex.data} />
+                </section>
+              ) : null}
+
               <div className="grid-2">
                 <Card title="Why this changed" actions={<Link className="btn btn-sm" to="/impact">See the path</Link>}>
                   <WhySummary ex={ex.data} />

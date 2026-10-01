@@ -31,6 +31,7 @@ from backend.app.persistence.database import ExecutionRun
 
 IN_PROCESS = "in_process"
 AIRFLOW = "airflow"
+DAGSTER = "dagster"  # D28
 
 RUNNING = "running"
 REQUESTED = "requested"

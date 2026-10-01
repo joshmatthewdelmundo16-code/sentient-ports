@@ -642,6 +642,11 @@ class IngestionRun(Base):
     graph_run_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("execution_run.id", ondelete="SET NULL"), nullable=True
     )
+    # D27: which connector produced this run (NULL = the D18 Excel upload path).
+    connector_kind: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    connector_source_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("connector_source.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now, index=True
     )
@@ -821,17 +826,8 @@ class ApprovedOutput(Base):
     """
 
     __tablename__ = "approved_output"
-    __table_args__ = (
-        # At most one ACTIVE approval per (participant, dataset, field). Revoked rows are
-        # excluded, so re-approval after revoke is allowed. Works on SQLite and PostgreSQL.
-        Index(
-            "uq_approved_output_active",
-            "participant_id", "dataset_id", "field_name",
-            unique=True,
-            sqlite_where=text("status = 'active'"),
-            postgresql_where=text("status = 'active'"),
-        ),
-    )
+    # D27: the partial unique index (one ACTIVE approval per exact sharing target) is defined
+    # after the class — it needs column expressions for audience / case / run.
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     # D26: owning organization (tenant). Stamped automatically from the request scope and
@@ -868,6 +864,10 @@ class ApprovedOutput(Base):
         String(36), ForeignKey("app_user.id", ondelete="SET NULL"), nullable=True
     )
     revocation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # D27: an approval limited to the members of one collaboration case.
+    collaboration_case_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("collaboration_case.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now, onupdate=_now
@@ -888,6 +888,13 @@ Index("uq_dataset_org_name", func.coalesce(Dataset.__table__.c.organization_id, 
       Dataset.__table__.c.name, unique=True)
 Index("uq_baseline_org_name", func.coalesce(Baseline.__table__.c.organization_id, ""),
       Baseline.__table__.c.name, unique=True)
+# At most one ACTIVE approval per exact sharing target: (participant, dataset, field, audience,
+# case, run). Revoked rows are excluded, so re-approval after revoke is allowed.
+_ao = ApprovedOutput.__table__.c
+Index("uq_approved_output_active", _ao.participant_id, _ao.dataset_id, _ao.field_name,
+      func.coalesce(_ao.audience_organization_id, ""), func.coalesce(_ao.collaboration_case_id, ""),
+      func.coalesce(_ao.source_run_id, ""), unique=True,
+      sqlite_where=text("status = 'active'"), postgresql_where=text("status = 'active'"))
 
 
 # ---------------------------------------------------------------------------
@@ -1002,6 +1009,149 @@ class AuditEvent(Base):
     detail_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
     request_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+
+# ---------------------------------------------------------------------------
+# Network, connectors, planning (D27)
+# ---------------------------------------------------------------------------
+
+def _org_col():
+    return mapped_column(String(36), ForeignKey("organization.id"), nullable=True, index=True)
+
+
+class CollaborationCase(Base):
+    """A shared decision case hosted by one organization, with explicit member organizations."""
+
+    __tablename__ = "collaboration_case"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str | None] = _org_col()          # the host
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    purpose: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="open")
+    created_by_user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("app_user.id", ondelete="SET NULL"), nullable=True)
+    closes_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    meta_json: Mapped[str | None] = mapped_column("metadata_json", Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+
+class CaseMember(Base):
+    """Membership of an organization in a case. Deliberately NOT a tenant table: it spans
+    organizations, and is read only through the collaboration service's explicit checks."""
+
+    __tablename__ = "case_member"
+    __table_args__ = (UniqueConstraint("case_id", "member_organization_id", name="uq_case_member"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    case_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("collaboration_case.id", ondelete="CASCADE"), nullable=False, index=True)
+    member_organization_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("organization.id", ondelete="CASCADE"), nullable=False, index=True)
+    role: Mapped[str] = mapped_column(String(32), nullable=False, default="participant")
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class ConnectorSource(Base):
+    """A configured data source feeding one dataset through the ordinary ingestion path."""
+
+    __tablename__ = "connector_source"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str | None] = _org_col()
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    config_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    target_dataset_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("dataset.id", ondelete="SET NULL"), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    poll_interval_s: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+
+class TelemetryReading(Base):
+    """One reading received from an event/stream source. Idempotent per (source, key)."""
+
+    __tablename__ = "telemetry_reading"
+    __table_args__ = (UniqueConstraint("source_id", "idempotency_key", name="uq_telemetry_source_key"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str | None] = _org_col()
+    source_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("connector_source.id", ondelete="CASCADE"), nullable=False)
+    metric: Mapped[str] = mapped_column(String(128), nullable=False)
+    value: Mapped[float] = mapped_column(Float, nullable=False)
+    observed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    simulated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+
+class MasterPlan(Base):
+    """A multi-period plan: horizon, time-dependent assumptions and investments (spec_json)."""
+
+    __tablename__ = "master_plan"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str | None] = _org_col()
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft")
+    parent_plan_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("master_plan.id", ondelete="SET NULL"), nullable=True)
+    target_version_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("model_version.id", ondelete="SET NULL"), nullable=True)
+    inputs_dataset_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("dataset.id", ondelete="SET NULL"), nullable=True)
+    spec_json: Mapped[str] = mapped_column(Text, nullable=False)
+    evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+
+class PlanPeriod(Base):
+    """One evaluated planning period, pinned to the exact GraphRun that produced it."""
+
+    __tablename__ = "plan_period"
+    __table_args__ = (UniqueConstraint("plan_id", "year", name="uq_plan_period_year"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str | None] = _org_col()
+    plan_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("master_plan.id", ondelete="CASCADE"), nullable=False, index=True)
+    year: Mapped[int] = mapped_column(Integer, nullable=False)
+    run_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("execution_run.id", ondelete="SET NULL"), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
+    inputs_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    outputs_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class OptimizationStudy(Base):
+    """Decision variables + constraints + objectives → evaluated alternatives (result_json)."""
+
+    __tablename__ = "optimization_study"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    organization_id: Mapped[str | None] = _org_col()
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    base_plan_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("master_plan.id", ondelete="SET NULL"), nullable=True)
+    spec_json: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft")
+    result_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    verification_plan_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("master_plan.id", ondelete="SET NULL"), nullable=True)
+    evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
 
 
 # ---------------------------------------------------------------------------

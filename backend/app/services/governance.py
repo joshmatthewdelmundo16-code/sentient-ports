@@ -269,6 +269,22 @@ class GovernanceService:
                 "An organization cannot share an output with itself; choose a hub, another "
                 "organization, or the whole network.")
 
+    def _validate_case(self, case_id: str) -> None:
+        """The case may be hosted by another organization, so it is read across organizations
+        — but only to check membership; nothing about it is returned."""
+        from backend.app.persistence.database import CaseMember, CollaborationCase
+        from backend.app.security.tenancy import cross_org_session
+
+        org = self._scope_org()
+        with cross_org_session(self._db) as s:
+            case = s.get(CollaborationCase, case_id)
+            if case is None or case.status != "open":
+                raise ApprovalValidationError("That collaboration case does not exist or is closed.")
+            member = case.organization_id == org or s.execute(select(CaseMember).where(
+                CaseMember.case_id == case_id, CaseMember.member_organization_id == org)).scalars().first()
+            if org is not None and not member:
+                raise ApprovalValidationError("Your organization is not a member of that case.")
+
     def _validate_source_run(self, source_run_id: str, dataset_id: str, field: str) -> None:
         run = self._db.get(ExecutionRun, source_run_id)
         if run is None:
@@ -295,6 +311,7 @@ class GovernanceService:
         audience_organization_id: str | None = None,
         source_run_id: str | None = None,
         approved_by_user_id: str | None = None,
+        collaboration_case_id: str | None = None,
     ) -> ApprovedOutput:
         participant = self.get_participant(participant_id)
         if participant.status != "active":
@@ -313,10 +330,19 @@ class GovernanceService:
         self._validate_audience(audience_organization_id)
         if source_run_id is not None:
             self._validate_source_run(source_run_id, dataset_id, field)
+        if collaboration_case_id is not None:
+            if audience_organization_id is not None:
+                raise ApprovalValidationError(
+                    "A case-limited approval is shared with the case's members; do not also name an audience.")
+            self._validate_case(collaboration_case_id)
         meta_json = _dump_meta(metadata)
 
-        # Explicit duplicate check (the partial unique index is the hard guarantee).
-        if self._approvals.find_active(participant_id, dataset_id, field) is not None:
+        # Explicit duplicate check (the partial unique index is the hard guarantee). D27: one
+        # active approval per exact sharing target — the same field may be shared with a hub
+        # and, separately, into a case.
+        if self._approvals.find_active_exact(
+                participant_id, dataset_id, field, audience_organization_id=audience_organization_id,
+                collaboration_case_id=collaboration_case_id, source_run_id=source_run_id) is not None:
             raise DuplicateApprovalError(
                 f"An active approval already exists for participant={participant_id!r}, "
                 f"dataset={dataset_id!r}, field={field!r}."
@@ -328,6 +354,7 @@ class GovernanceService:
                 expires_at=expires_at, meta_json=meta_json,
                 audience_organization_id=audience_organization_id,
                 source_run_id=source_run_id, approved_by_user_id=approved_by_user_id,
+                collaboration_case_id=collaboration_case_id,
             ))
         except DuplicateError as exc:  # race against the partial unique index
             raise DuplicateApprovalError(

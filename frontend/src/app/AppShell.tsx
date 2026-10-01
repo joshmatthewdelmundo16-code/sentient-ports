@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
@@ -102,21 +102,60 @@ function UserMenu() {
 }
 
 export function AppShell() {
-  const [open, setOpen] = useState(false)
   const location = useLocation()
   const build = useBuildInfo()
   const info = build.data
   const shared = info && info.database !== 'sqlite'
   const stale = info && info.version !== __API_VERSION__
+  const toggleRef = useRef<HTMLButtonElement>(null)
+
+  // One boolean drives both the mobile off-canvas drawer and the desktop collapse.
+  // Default: visible on desktop, hidden on mobile; the user's explicit choice persists.
+  const [navOpen, setNavOpen] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('nav-open')
+      if (saved !== null) return saved === '1'
+    } catch { /* storage unavailable */ }
+    try {
+      return window.matchMedia('(min-width: 961px)').matches
+    } catch {
+      return true
+    }
+  })
+
+  useEffect(() => {
+    try { localStorage.setItem('nav-open', navOpen ? '1' : '0') } catch { /* ignore */ }
+  }, [navOpen])
+
+  // Esc closes the navigation and returns focus to the toggle.
+  useEffect(() => {
+    if (!navOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setNavOpen(false)
+        toggleRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [navOpen])
+
+  // On mobile the drawer should close after choosing a destination; on desktop it stays put.
+  const closeOnMobile = () => {
+    try {
+      if (window.matchMedia('(max-width: 960px)').matches) setNavOpen(false)
+    } catch { /* ignore */ }
+  }
+
   return (
-    <div className="shell">
-      <div className={`scrim ${open ? 'open' : ''}`} onClick={() => setOpen(false)} aria-hidden="true" />
-      <aside className={`sidebar ${open ? 'open' : ''}`} aria-label="Main navigation">
+    <div className={`shell ${navOpen ? '' : 'nav-collapsed'}`}>
+      <div className={`scrim ${navOpen ? 'open' : ''}`} onClick={() => setNavOpen(false)} aria-hidden="true" />
+      <aside id="app-sidebar" className={`sidebar ${navOpen ? 'open' : ''}`} aria-label="Main navigation">
         <div className="brand">
           <div className="brand-mark" aria-hidden="true">PN</div>
           <div>
-            <div className="brand-name">Port decision platform</div>
-            <div className="brand-sub">Federated models · governed sharing</div>
+            <div className="brand-name">Port Decision Platform</div>
+            <div className="brand-sub">Federated Models · Governed Sharing</div>
           </div>
         </div>
         <nav className="nav">
@@ -124,7 +163,7 @@ export function AppShell() {
             <div key={g.title} className="nav-group">
               <div className="nav-group-title">{g.title}</div>
               {g.items.map((item) => (
-                <NavLink key={item.to} to={item.to} end={item.to === '/'} onClick={() => setOpen(false)}
+                <NavLink key={item.to} to={item.to} end={item.to === '/'} onClick={closeOnMobile}
                   className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} title={item.description}>
                   <span className="nav-step" aria-hidden="true">{item.step ?? '·'}</span>
                   {item.label}
@@ -154,7 +193,15 @@ export function AppShell() {
           </div>
         ) : null}
         <header className="contextbar">
-          <button type="button" className="btn btn-sm menu-toggle" onClick={() => setOpen(true)} aria-label="Open navigation">☰</button>
+          <button
+            ref={toggleRef}
+            type="button"
+            className="btn btn-sm menu-toggle"
+            onClick={() => setNavOpen((v) => !v)}
+            aria-label={navOpen ? 'Hide Navigation' : 'Show Navigation'}
+            aria-expanded={navOpen}
+            aria-controls="app-sidebar"
+          >☰</button>
           <ScopeSwitcher />
           {location.pathname.startsWith('/network') || location.pathname.startsWith('/collaboration') ? null : <DecisionContext />}
           <span className="spacer" />

@@ -200,7 +200,7 @@ export function ScenarioPage() {
   if (loading) return <Loading lines={6} />
   if (error) return <ErrorState error={error} onRetry={refetch} />
   if (!workspace || !baseline) {
-    return (<div className="stack-lg"><PageHeader title="Scenario comparison" /><EmptyState title="No baseline in this scope yet" /></div>)
+    return (<div className="stack-lg"><PageHeader title="Scenario Comparison" /><EmptyState title="No baseline in this scope yet" /></div>)
   }
   const sourceIds = map.data ? sourcesFor(map.data, baseline.target_version_id) : new Set<string>()
   const datasets = workspace.assumptions.filter((d) => sourceIds.size === 0 || sourceIds.has(d.id))
@@ -209,7 +209,7 @@ export function ScenarioPage() {
   return (
     <div className="stack-lg">
       <PageHeader
-        title="Scenario comparison"
+        title="Scenario Comparison"
         description={<>Compare <strong>{scenario?.name ?? 'a scenario'}</strong> with the baseline <strong>{baseline.name}</strong>. Scenario runs are read-only: they never change shared data or trigger downstream updates.</>}
       />
       <Card title="New scenario" subtitle={`Derived from the baseline “${baseline.name}”.`}>

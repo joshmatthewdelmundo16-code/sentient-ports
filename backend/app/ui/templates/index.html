@@ -2304,7 +2304,8 @@ async function renderExecutionHistory() {
       var label = ctx ? (ctx.kind + ": " + ctx.name)
         : (prettify(r.run_kind || "run") + (r.scenario_id ? " (scenario)" : " execution"));
       var when = fmtDate(r.finished_at || r.started_at || r.created_at);
-      var exec = r.executor === "airflow" ? "Airflow (external)" : "In-process";
+      var exec = r.executor === "airflow" ? "Airflow (external)"
+               : r.executor === "dagster" ? "Dagster (external)" : "In-process";
       var st = (r.status || "").toLowerCase();
       return '<div class="exec-card ' + esc(st) + '">' +
         '<div class="exec-main"><span class="exec-context">' + esc(label) + "</span>" +

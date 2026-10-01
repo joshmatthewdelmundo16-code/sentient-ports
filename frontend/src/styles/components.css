@@ -150,6 +150,8 @@ details.technical[open] > summary::before { transform: rotate(90deg); }
 .legend-swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 6px; vertical-align: -1px; }
 
 /* Graph */
+.ripple-canvas { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-5); box-shadow: var(--shadow-1); }
+.ripple-canvas h2 { margin: 0; }
 .graph-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); }
 .graph-node rect { fill: var(--surface); stroke: var(--line-strong); }
 .graph-node.source rect { fill: #f4f7fb; }

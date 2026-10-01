@@ -3,6 +3,12 @@
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   min-height: 100vh;
+  transition: grid-template-columns 0.18s ease;
+}
+/* Desktop: the toggle collapses the persistent sidebar to reclaim width. */
+@media (min-width: 961px) {
+  .shell.nav-collapsed { grid-template-columns: 0 minmax(0, 1fr); }
+  .shell.nav-collapsed .sidebar { overflow: hidden; border: 0; }
 }
 .sidebar {
   background: var(--nav);
@@ -69,13 +75,13 @@
 .page { padding: var(--space-5) var(--space-5) var(--space-7); max-width: 1320px; width: 100%; }
 .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-5); flex-wrap: wrap; }
 .page-header p { color: var(--ink-500); margin-top: var(--space-1); max-width: 70ch; }
-.menu-toggle { display: none; }
+/* The toggle is always available: on desktop it collapses the sidebar, on mobile it opens the drawer. */
+.menu-toggle { display: inline-flex; }
 
 @media (max-width: 960px) {
-  .shell { grid-template-columns: minmax(0, 1fr); }
+  .shell, .shell.nav-collapsed { grid-template-columns: minmax(0, 1fr); }
   .sidebar { position: fixed; inset: 0 auto 0 0; width: min(86vw, 300px); z-index: 50; transform: translateX(-105%); transition: transform 0.18s ease; }
   .sidebar.open { transform: translateX(0); box-shadow: var(--shadow-2); }
-  .menu-toggle { display: inline-flex; }
   .page { padding: var(--space-4) var(--space-4) var(--space-6); }
   .contextbar { padding: var(--space-2) var(--space-4); }
   .context-value { max-width: 160px; }

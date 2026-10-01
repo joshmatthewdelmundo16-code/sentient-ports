@@ -57,7 +57,10 @@ from backend.app.ui.network_seed import DEMO_PASSWORD, seed_network_demo
 from tests.demo_support import db_override
 
 UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
-PUBLIC = {"/api/session", "/api/auth/login", "/api/auth/logout", "/api/build-info"}
+PUBLIC = {"/api/session", "/api/auth/login", "/api/auth/logout", "/api/build-info",
+          # HMAC-authenticated, not session-authenticated. Its refusal is 404 (unknown source)
+          # or 401 (bad signature), never based on the caller's user session.
+          "/api/webhooks/{source_id}"}
 
 
 # ---------------------------------------------------------------------------
@@ -81,7 +84,7 @@ def net(monkeypatch):
     eng = _engine()
     SF = sessionmaker(bind=eng)
     db = SF()
-    seeded = seed_network_demo(db)
+    seeded = seed_network_demo(db, extended=False)
     db.commit()
     db.close()
     monkeypatch.setattr(settings, "AUTH_MODE", "required")
@@ -694,7 +697,7 @@ class TestNetworkSeed:
     def test_idempotent(self, net):
         _, SF, _ = net
         db = SF()
-        again = seed_network_demo(db)
+        again = seed_network_demo(db, extended=False)
         db.commit(); db.close()
         assert again["approvals_created"] == 0 and again["accounts_created"] == 0
 

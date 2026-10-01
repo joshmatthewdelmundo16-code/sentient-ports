@@ -209,6 +209,21 @@ class AirflowCallbackOut(BaseModel):
     success: bool
     already_terminal: bool = False
     recorded_result_ids: list[str] = Field(default_factory=list)
+    # D28: names of the datasets this run computed, changed or not — lets an orchestrator such as
+    # Dagster record them as asset materializations.
+    written_datasets: list[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Dagster optional executor (D28)
+# ---------------------------------------------------------------------------
+
+class DagsterCallbackRequest(_Request):
+    """Callback issued by the Dagster op to carry out a submitted GraphRun."""
+
+    dagster_run_id: str = Field(
+        ..., description="Dagster run id; must match the run's stored correlation id"
+    )
 
 
 class ExecutionReconcileOut(BaseModel):
@@ -301,8 +316,8 @@ class GraphExecutionRequest(_Request):
     )
     executor: str | None = Field(
         None,
-        description="Optional executor: 'in_process' (default) or 'airflow' (optional external "
-                    "executor; requires valid Airflow configuration). Scenarios always run "
+        description="Optional executor: 'in_process' (default), 'airflow' or 'dagster' (optional "
+                    "external executors; each requires its own valid configuration). Scenarios always run "
                     "in-process regardless of this field.",
     )
 

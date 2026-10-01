@@ -253,7 +253,7 @@ class ActivityService:
             ing = ingestion_by_id.get(trig.split(":", 1)[1])
             technical["ingestion_id"] = trig.split(":", 1)[1]
             if ing is not None:
-                via.update({"kind": "upload", "file_name": ing.source_name,
+                via.update({"kind": ing.connector_kind or "upload", "file_name": ing.source_name,
                             "content_sha256": ing.content_sha256, "mapping_key": ing.mapping_key})
 
         effect = None

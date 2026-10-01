@@ -17,7 +17,7 @@ export function ImpactPage() {
   return (
     <div className="stack-lg">
       <PageHeader
-        title="Impact & why"
+        title="Impact & Why"
         description="How a change travels through the models. Each step is derived from the models' declared inputs and the recorded results — not written by hand."
       />
       {map.isLoading ? <Loading lines={5} /> : map.error ? <ErrorState error={map.error} /> : map.data ? (

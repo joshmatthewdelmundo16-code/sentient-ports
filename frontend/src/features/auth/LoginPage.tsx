@@ -51,7 +51,7 @@ export function LoginPage() {
         <div className="row" style={{ marginBottom: 16 }}>
           <div className="brand-mark" aria-hidden="true">PN</div>
           <div>
-            <h1 style={{ fontSize: '1.2rem' }}>Port decision platform</h1>
+            <h1 style={{ fontSize: '1.2rem' }}>Port Decision Platform</h1>
             <div className="small muted">Sign in to your organization's workspace</div>
           </div>
         </div>

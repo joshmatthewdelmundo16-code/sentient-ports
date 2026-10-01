@@ -5,6 +5,7 @@ import { ExcelPage } from '../features/excel/ExcelPage'
 import { ExecutionPage } from '../features/execution/ExecutionPage'
 import { GovernancePage } from '../features/governance/GovernancePage'
 import { ImpactPage } from '../features/impact/ImpactPage'
+import { NetworkPage } from '../features/network/NetworkPage'
 import { SourcesPage } from '../features/provenance/SourcesPage'
 import { ScenarioPage } from '../features/scenario/ScenarioPage'
 import { StartPage } from '../features/start/StartPage'
@@ -20,6 +21,7 @@ export const ROUTES: { path: string; element: ReactNode }[] = [
   { path: '/activity', element: <ActivityPage /> },
   { path: '/execution', element: <ExecutionPage /> },
   { path: '/governance', element: <GovernancePage /> },
+  { path: '/network', element: <NetworkPage /> },
 ]
 
 export const ROUTE_PATHS = new Set(ROUTES.map((r) => r.path))

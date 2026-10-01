@@ -9,6 +9,7 @@ import type {
   Approval,
   BuildInfo,
   CatalogDataset,
+  CollaborationCase,
   Comparison,
   ExecutionDetail,
   ExecutionRun,
@@ -16,12 +17,15 @@ import type {
   ExposedField,
   FederationMap,
   GovernanceSummary,
+  HierarchyNode,
+  HubOverview,
   IngestionOut,
   LineageEdge,
   Mapping,
   MappingPreview,
   Participant,
   ResultRow,
+  SharedValue,
   UploadImpact,
   WorkbookPreview,
   Workspace,
@@ -218,4 +222,40 @@ export function useApprovals() {
 
 export function useExposedOutputs() {
   return useQuery({ queryKey: scoped('exposed'), queryFn: scopedGet<ExposedField[]>('/api/exposed-outputs') })
+}
+
+export function useNetworkHierarchy() {
+  return useQuery({ queryKey: scoped('network-hierarchy'), queryFn: scopedGet<HierarchyNode[]>('/api/network/hierarchy') })
+}
+
+export function useSharedWithMe() {
+  return useQuery({ queryKey: scoped('shared-with-me'), queryFn: scopedGet<SharedValue[]>('/api/network/shared-with-me') })
+}
+
+export function useHubView() {
+  return useQuery({
+    queryKey: scoped('hub-view'),
+    queryFn: scopedGet<HubOverview>('/api/network/hub'),
+    retry: false,
+  })
+}
+
+export interface HubMaterializeResult {
+  record: Record<string, number | null>
+  changed: boolean
+  run_id: string | null
+  approvals_used: string[]
+  not_shared: { member: string; indicator: string }[]
+}
+
+export function useMaterializeHub() {
+  const invalidate = useInvalidateScope()
+  return useMutation({
+    mutationFn: () => api<HubMaterializeResult>('/api/network/hub/materialize', { method: 'POST' }),
+    onSuccess: () => invalidate(),
+  })
+}
+
+export function useCases() {
+  return useQuery({ queryKey: scoped('cases'), queryFn: scopedGet<CollaborationCase[]>('/api/cases') })
 }

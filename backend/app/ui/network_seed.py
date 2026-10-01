@@ -231,8 +231,11 @@ def _seed_accounts(db: Session, orgs: dict[str, Organization]) -> int:
     return created
 
 
-def seed_network_demo(db: Session) -> dict[str, Any]:
-    """Idempotently build the demo network. Returns configs for the legacy pages."""
+def seed_network_demo(db: Session, *, extended: bool = True) -> dict[str, Any]:
+    """Idempotently build the demo network. Returns configs for the legacy pages.
+
+    extended=False builds only the D26 part (organizations, accounts, port federations,
+    approvals) — used by tests that do not need hubs, plans, connectors or cases."""
     if not _is_sqlite(db):
         return {}
     orgs = ensure_organizations(db)
@@ -246,11 +249,10 @@ def seed_network_demo(db: Session) -> dict[str, Any]:
 
     # D27 extends the demo (hub federations, collaboration case, planning packs). Imported
     # lazily so this module stays usable on its own.
-    try:
+    extra: dict[str, Any] = {}
+    if extended:
         from backend.app.network.demo import seed_d27_demo
         extra = seed_d27_demo(db, orgs)
-    except ImportError:
-        extra = {}
     db.flush()
     return {
         "organizations": {k: o.id for k, o in orgs.items()},

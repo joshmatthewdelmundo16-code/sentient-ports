@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import HTTPException
 
 from backend.app.execution.airflow_client import AirflowConfigError, AirflowTransportError
+from backend.app.execution.dagster_client import DagsterConfigError, DagsterTransportError
 from backend.app.execution.executor import ExecutorConfigError, ExecutorSelectionError
 from backend.app.services.change_propagation import PropagationCycleError
 from backend.app.services.contract_validation import ContractViolationError
@@ -66,6 +67,9 @@ _STATUS: list[tuple[type[Exception], int]] = [
     (AirflowConfigError, 503),
     (ExecutorConfigError, 503),
     (AirflowTransportError, 502),
+    # Dagster optional executor (D28): same split.
+    (DagsterConfigError, 503),
+    (DagsterTransportError, 502),
     # Governance (D22).
     (ParticipantNotFoundError, 404),
     (ApprovedOutputNotFoundError, 404),

@@ -406,3 +406,94 @@ export interface ExposedField {
   approved_at: string | null
   expires_at: string | null
 }
+
+export interface HierarchyNode {
+  id: string
+  key: string
+  name: string
+  kind: string
+  synthetic: boolean
+  children: HierarchyNode[]
+}
+
+export interface SharedValue {
+  approval_id: string
+  provider_org_id: string
+  provider_org_name: string
+  provider_kind: string
+  participant_name: string
+  dataset_name: string
+  dataset_label: string
+  field: string
+  field_label: string
+  unit: string | null
+  value: Scalar
+  value_present: boolean
+  value_source: 'published' | 'run'
+  source_run_id: string | null
+  purpose: string | null
+  audience: 'you' | 'network' | 'case'
+  case_id: string | null
+  approved_at: string | null
+  expires_at: string | null
+}
+
+export interface Indicator {
+  key: string
+  dataset: string
+  field: string
+  label: string
+  unit: string | null
+  agg: 'sum' | 'mean'
+}
+
+export interface IndicatorCell {
+  indicator: string
+  shared: boolean
+  value: Scalar
+  purpose: string | null
+  audience: string | null
+  approval_id: string | null
+  expires_at: string | null
+}
+
+export interface HubMember {
+  id: string
+  name: string
+  kind: string
+  parent_id: string | null
+  indicators: IndicatorCell[]
+}
+
+export interface HubAggregate extends Indicator {
+  value: number | null
+  reporting: number
+  in_scope: number
+}
+
+export interface HubSubHub {
+  id: string
+  name: string
+  kind: string
+  shared: SharedValue[]
+}
+
+export interface HubOverview {
+  hub: { id: string; name: string; kind: string }
+  indicators: Indicator[]
+  members: HubMember[]
+  sub_hubs: HubSubHub[]
+  aggregates: HubAggregate[]
+  shared_from_outside: SharedValue[]
+}
+
+export interface CollaborationCase {
+  id: string
+  title: string
+  purpose: string
+  status: string
+  organization_id: string
+  members: { organization_id: string; organization_name?: string; role: string }[]
+  closes_at: string | null
+  created_at: string | null
+}

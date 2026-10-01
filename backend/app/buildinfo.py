@@ -60,6 +60,22 @@ CAPABILITY_ROUTES: dict[str, str] = {
     "auth.session": "/api/session",
     "auth.login": "/api/auth/login",
     "governance.audit": "/api/audit",
+    # D27 — network, collaboration, library, connectors, live, planning, optimization.
+    "network.hub": "/api/network/hub",
+    "network.shared": "/api/network/shared-with-me",
+    "collaboration.cases": "/api/cases",
+    "library.models": "/api/model-library",
+    "connectors.sources": "/api/connectors",
+    "connectors.webhook": "/api/webhooks/{source_id}",
+    "live.stream": "/api/events/stream",
+    "planning.plans": "/api/plans",
+    "optimization.studies": "/api/optimization",
+    "platform.capabilities": "/api/capabilities",
+    # D28 — open-source orchestration and data-movement integrations (all optional).
+    "execution.airflow_callback": "/api/executions/{run_id}/airflow-callback",
+    "execution.dagster_callback": "/api/executions/{run_id}/dagster-callback",
+    "connectors.airbyte_ingest": "/api/connectors/{source_id}/airbyte/ingest",
+    "connectors.airbyte_sync": "/api/connectors/{source_id}/airbyte/sync",
 }
 
 

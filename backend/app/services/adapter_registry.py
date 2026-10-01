@@ -92,9 +92,36 @@ def _build_port_domain(version: ModelVersion, config: dict[str, Any]) -> ModelAd
     )
 
 
+def _build_model_pack(version: ModelVersion, config: dict[str, Any]) -> ModelAdapter:
+    """D27: a model from a reviewed pack. The (pack, model) pair is resolved against the
+    in-repository allowlist — persisted configuration can never name arbitrary code."""
+    from backend.app.adapters.base import ModelAdapter as _Base
+    from backend.app.library import packs
+
+    try:
+        model = packs.resolve(str(config.get("pack")), str(config.get("model")))
+    except KeyError as exc:
+        raise AdapterConfigError(str(exc)) from exc
+
+    class _PackAdapter(_Base):
+        @property
+        def adapter_id(self) -> str:
+            return f"persisted:model_pack:{version.id}"
+
+        @property
+        def version_id(self) -> str:
+            return version.id
+
+        def invoke(self, inputs: dict[str, Any]) -> dict[str, Any]:
+            return packs.compute(model, inputs)
+
+    return _PackAdapter()
+
+
 ADAPTER_FACTORIES: dict[str, Callable[[ModelVersion, dict[str, Any]], ModelAdapter]] = {
     "synthetic": _build_synthetic,
     "port_domain": _build_port_domain,
+    "model_pack": _build_model_pack,
 }
 
 

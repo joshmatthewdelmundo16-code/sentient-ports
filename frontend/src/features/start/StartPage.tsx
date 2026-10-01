@@ -49,7 +49,7 @@ export function StartPage() {
   return (
     <div className="stack-lg">
       <PageHeader
-        title="Start here"
+        title="Start Here"
         description="Link port models so a change in one assumption flows through every model that depends on it — and see exactly why. Private work stays in your organization's zone; only outputs someone explicitly approves are shared."
       />
 

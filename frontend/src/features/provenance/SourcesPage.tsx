@@ -85,7 +85,7 @@ export function SourcesPage() {
 
   return (
     <div className="stack-lg">
-      <PageHeader title="Sources & provenance" description="Every value, where it came from, when, and which run or upload produced it." />
+      <PageHeader title="Sources & Provenance" description="Every value, where it came from, when, and which run or upload produced it." />
       <Tabs label="Provenance views" value={tab} onChange={setTab} tabs={[
         { id: 'sources', label: `Source data (${sources.length})` },
         { id: 'results', label: `Model results (${results.length})` },

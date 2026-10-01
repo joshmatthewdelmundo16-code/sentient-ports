@@ -37,6 +37,8 @@ from backend.app.persistence.database import (
     ApprovedOutput,
     Baseline,
     ChangeEvent,
+    CollaborationCase,
+    ConnectorSource,
     DataContract,
     Dataset,
     Dependency,
@@ -44,19 +46,25 @@ from backend.app.persistence.database import (
     ExecutionStep,
     IngestionRun,
     LineageEdge,
+    MasterPlan,
     Model,
     ModelIOBinding,
     ModelVersion,
+    OptimizationStudy,
     Participant,
+    PlanPeriod,
     Result,
     Scenario,
     ScenarioOverride,
+    TelemetryReading,
 )
 
 TENANT_CLASSES: tuple[type, ...] = (
     Model, ModelVersion, ModelIOBinding, Dataset, DataContract, Dependency, ExecutionRun,
     ExecutionStep, Result, LineageEdge, ChangeEvent, IngestionRun, Baseline, Scenario,
     ScenarioOverride, Participant, ApprovedOutput,
+    # D27
+    CollaborationCase, ConnectorSource, TelemetryReading, MasterPlan, PlanPeriod, OptimizationStudy,
 )
 
 _SCOPE_KEY = "tenant_scope"
@@ -109,17 +117,21 @@ def tenant_scope(db: Session, org_id: str, *, include_unowned: bool = False) -> 
 
 @contextmanager
 def cross_org_session(db: Session) -> Iterator[Session]:
-    """A separate, unscoped, read-only session for governed cross-organization reads.
+    """An unscoped, read-only session for governed cross-organization reads.
 
     Only the sharing code (approved outputs → hubs, collaboration cases) uses this, and it
     returns plain values, never ORM objects, so nothing loaded here can leak into the
-    request session's identity map.
+    request session's identity map (it has its own).
+
+    It runs on the REQUEST's own connection and transaction (join mode "rollback_only"), so
+    it sees what the request has written so far, and closing it neither commits nor rolls
+    back that transaction. (A separate connection would not see uncommitted writes; and
+    rolling a session back on a shared connection would undo the request's own work.)
     """
-    other = Session(bind=db.get_bind(), autoflush=False)
+    other = Session(bind=db.connection(), autoflush=False, join_transaction_mode="rollback_only")
     try:
         yield other
     finally:
-        other.rollback()
         other.close()
 
 

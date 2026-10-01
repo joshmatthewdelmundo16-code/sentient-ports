@@ -143,6 +143,42 @@ AIRFLOW_POLL_TIMEOUT_S: float = float(_env("AIRFLOW_POLL_TIMEOUT_S", "10"))
 AIRFLOW_VERIFY_TLS: bool = _env_bool("AIRFLOW_VERIFY_TLS", True)
 
 # ---------------------------------------------------------------------------
+# Dagster optional executor (D28)
+# ---------------------------------------------------------------------------
+# A second OPTIONAL external executor with exactly the Airflow contract: Dagster triggers and
+# schedules, the platform computes and persists. Off by default; an explicit "dagster" request
+# without valid configuration raises a clear error instead of falling back.
+DAGSTER_ENABLED: bool = _env_bool("DAGSTER_ENABLED", False)
+# Dagster webserver GraphQL endpoint, e.g. "http://localhost:3000/graphql".
+DAGSTER_GRAPHQL_URL: str = _env("DAGSTER_GRAPHQL_URL", "")
+# The code location, repository and job defined in platform/dagster_platform/definitions.py.
+DAGSTER_LOCATION_NAME: str = _env("DAGSTER_LOCATION_NAME", "dagster_platform")
+DAGSTER_REPOSITORY_NAME: str = _env("DAGSTER_REPOSITORY_NAME", "__repository__")
+DAGSTER_JOB_NAME: str = _env("DAGSTER_JOB_NAME", "platform_graphrun_job")
+# Dagster OSS has no built-in auth; a token is sent only if one is set (e.g. Dagster+ or a
+# reverse proxy). Never logged.
+DAGSTER_AUTH_TOKEN: str = _env("DAGSTER_AUTH_TOKEN", "")
+DAGSTER_TIMEOUT_S: float = float(_env("DAGSTER_TIMEOUT_S", "10"))
+DAGSTER_VERIFY_TLS: bool = _env_bool("DAGSTER_VERIFY_TLS", True)
+
+# ---------------------------------------------------------------------------
+# Airbyte connector (D28)
+# ---------------------------------------------------------------------------
+# Airbyte moves data (Excel on SharePoint/Drive/S3, databases, SaaS APIs) into a staging schema
+# of THIS platform's database; the "airbyte" connector then reads the synced rows and sends them
+# through the same governed path as every other connector. Airbyte never writes a dataset.
+# Airbyte public API base, e.g. "http://localhost:8000/api/public". Empty → syncs cannot be
+# triggered from the platform (Airbyte's own schedule still works; ingestion still works).
+AIRBYTE_API_URL: str = _env("AIRBYTE_API_URL", "")
+# Auth: a bearer token, OR an Airbyte application's client id + secret (exchanged for a token).
+AIRBYTE_API_TOKEN: str = _env("AIRBYTE_API_TOKEN", "")
+AIRBYTE_CLIENT_ID: str = _env("AIRBYTE_CLIENT_ID", "")
+AIRBYTE_CLIENT_SECRET: str = _env("AIRBYTE_CLIENT_SECRET", "")
+AIRBYTE_TIMEOUT_S: float = float(_env("AIRBYTE_TIMEOUT_S", "15"))
+# Schema the Airbyte destination writes into. Empty → unqualified table names (SQLite).
+AIRBYTE_STAGING_SCHEMA: str = _env("AIRBYTE_STAGING_SCHEMA", "airbyte")
+
+# ---------------------------------------------------------------------------
 # Startup safety (D24)
 # ---------------------------------------------------------------------------
 # Two things used to happen on *every* startup against *any* database:
@@ -243,8 +279,8 @@ CORS_ALLOWED_ORIGINS: list[str] = [
 # HSTS only makes sense once the service is really behind HTTPS.
 HSTS_ENABLED: bool = _env_bool("HSTS_ENABLED", IS_PRODUCTION)
 
-# Service-to-service token for the optional Airflow callback (D21). Empty → callbacks need a
-# normal signed-in user like any other call.
+# Service-to-service token for the optional Airflow (D21) and Dagster (D28) callbacks. Empty →
+# callbacks need a normal signed-in user like any other call.
 SERVICE_TOKEN: str = _env("PLATFORM_SERVICE_TOKEN", "")
 
 # ---------------------------------------------------------------------------

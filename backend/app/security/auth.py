@@ -50,7 +50,7 @@ RANK = {r: i + 1 for i, r in enumerate(ROLES)}
 UNSAFE = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
 # Routes that need more than the default. GET/HEAD default to viewer; any other method
-# defaults to analyst. "service" = only the Airflow executor's bearer token (or local mode).
+# defaults to analyst. "service" = only an external executor's bearer token (or local mode).
 POLICY: dict[tuple[str, str], str] = {
     ("POST", "/api/approved-outputs"): "approver",
     ("POST", "/api/approved-outputs/{approval_id}/revoke"): "approver",
@@ -63,6 +63,15 @@ POLICY: dict[tuple[str, str], str] = {
     ("GET", "/api/organizations/{org_id}/members"): "admin",
     ("GET", "/api/audit"): "approver",
     ("POST", "/api/executions/{run_id}/airflow-callback"): "service",
+    ("POST", "/api/executions/{run_id}/dagster-callback"): "service",  # D28
+    # D27
+    ("POST", "/api/model-library/packs/{pack_key}/install"): "admin",
+    ("POST", "/api/connectors"): "admin",
+    ("POST", "/api/connectors/{source_id}/{action}"): "admin",
+    ("GET", "/api/connectors/{source_id}/webhook-secret"): "admin",
+    ("POST", "/api/cases/{case_id}/close"): "approver",
+    ("POST", "/api/cases/{case_id}/members"): "approver",
+    ("POST", "/api/cases/{case_id}/outputs"): "approver",
 }
 
 
@@ -307,7 +316,7 @@ def _service_principal(request: Request) -> Principal | None:
         return None
     if not hmac.compare_digest(header[7:].strip().encode(), token.encode()):
         return None
-    return Principal(kind="service", user_id=None, email=None, label="Airflow executor")
+    return Principal(kind="service", user_id=None, email=None, label="External executor")
 
 
 def request_context(request: Request, db: Session = Depends(get_db, scope="function")) -> RequestContext:
@@ -336,7 +345,9 @@ def request_context(request: Request, db: Session = Depends(get_db, scope="funct
                                   session=session_row)
 
     # --- scope -----------------------------------------------------------------------
-    requested = request.headers.get("x-scope-org")
+    # EventSource cannot send headers, so a `scope` query parameter is accepted too — it is
+    # validated against the caller's memberships exactly like the header.
+    requested = request.headers.get("x-scope-org") or request.query_params.get("scope")
     org_id: str | None = None
     role: str | None = None
     if principal.kind == "service":

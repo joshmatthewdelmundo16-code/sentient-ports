@@ -9,6 +9,24 @@ from backend.app.persistence.database import ApprovedOutput
 class ApprovedOutputRepository(BaseRepository[ApprovedOutput]):
     model_class = ApprovedOutput
 
+    def find_active_exact(
+        self, participant_id: str, dataset_id: str, field_name: str, *,
+        audience_organization_id: str | None, collaboration_case_id: str | None,
+        source_run_id: str | None,
+    ) -> ApprovedOutput | None:
+        """D27: the active approval for exactly this sharing target (audience, case, run)."""
+        q = self._db.query(ApprovedOutput).filter(
+            ApprovedOutput.participant_id == participant_id,
+            ApprovedOutput.dataset_id == dataset_id,
+            ApprovedOutput.field_name == field_name,
+            ApprovedOutput.status == "active",
+        )
+        for col, val in ((ApprovedOutput.audience_organization_id, audience_organization_id),
+                         (ApprovedOutput.collaboration_case_id, collaboration_case_id),
+                         (ApprovedOutput.source_run_id, source_run_id)):
+            q = q.filter(col.is_(None) if val is None else col == val)
+        return q.first()
+
     def find_active(
         self, participant_id: str, dataset_id: str, field_name: str
     ) -> ApprovedOutput | None:

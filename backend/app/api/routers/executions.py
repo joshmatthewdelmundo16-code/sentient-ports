@@ -22,6 +22,7 @@ from backend.app.api.schemas import (
     AirflowCallbackOut,
     AirflowCallbackRequest,
     ChangeEventOut,
+    DagsterCallbackRequest,
     ExecutionDetailOut,
     ExecutionReconcileOut,
     ExecutionRequest,
@@ -35,9 +36,11 @@ from backend.app.api.schemas import (
     ResultOut,
 )
 from backend.app.execution.airflow_executor import AirflowExecutor
-from backend.app.execution.executor import AIRFLOW, is_terminal
+from backend.app.execution.dagster_executor import DagsterExecutor
+from backend.app.execution.executor import AIRFLOW, DAGSTER, is_terminal
 from backend.app.execution.factory import select_executor
 from backend.app.persistence.change_event_repository import ChangeEventRepository
+from backend.app.persistence.database import Dataset
 from backend.app.services.dataset_values import DatasetValueService
 from backend.app.services.execution import (
     ExecutionRunNotFoundError,
@@ -153,17 +156,41 @@ def airflow_callback(
     repeated callback on an already-terminal run is idempotent (returns the recorded status
     without re-executing). This is NOT a generic "execute any GraphRun" endpoint.
     """
+    return _carry_out_external(run_id, AIRFLOW, "Airflow dag_run_id", AirflowExecutor.read_external_ref,
+                               body.dag_run_id, exec_svc, orch_svc, results_svc)
+
+
+@router.post(
+    "/executions/{run_id}/dagster-callback",
+    response_model=AirflowCallbackOut,
+    summary="Carry out a submitted Dagster-executor GraphRun (called by the Dagster op)",
+)
+def dagster_callback(
+    run_id: str,
+    body: DagsterCallbackRequest,
+    exec_svc: ModelExecutionService = Depends(get_execution_service),
+    orch_svc: GraphOrchestrationService = Depends(get_orchestration_service),
+    results_svc: ResultsLineageService = Depends(get_results_service),
+) -> AirflowCallbackOut:
+    """D28: the same hardening as the Airflow callback, correlated on the Dagster run id."""
+    return _carry_out_external(run_id, DAGSTER, "Dagster run id", DagsterExecutor.read_external_ref,
+                               body.dagster_run_id, exec_svc, orch_svc, results_svc)
+
+
+def _carry_out_external(run_id, executor_name, ref_label, read_ref, presented_ref,
+                        exec_svc, orch_svc, results_svc) -> AirflowCallbackOut:
     run = _require_run(exec_svc, run_id)
-    if run.executor != AIRFLOW:
+    if run.executor != executor_name:
         raise HTTPException(
             status_code=409,
-            detail=f"GraphRun {run_id!r} is not an Airflow-executor run (executor={run.executor!r}).",
+            detail=f"GraphRun {run_id!r} was not submitted to the {executor_name.capitalize()} "
+                   f"executor (executor={run.executor!r}).",
         )
-    stored_ref = AirflowExecutor.read_external_ref(run)
-    if not stored_ref or stored_ref != body.dag_run_id:
+    stored_ref = read_ref(run)
+    if not stored_ref or stored_ref != presented_ref:
         raise HTTPException(
             status_code=409,
-            detail="Airflow dag_run_id does not match this GraphRun's stored correlation id.",
+            detail=f"{ref_label} does not match this GraphRun's stored correlation id.",
         )
     if is_terminal(run.status):
         results = [r.id for r in results_svc.list_results_for_run(run_id)]
@@ -171,6 +198,7 @@ def airflow_callback(
             graph_run_id=run_id, status=run.status,
             success=(run.status == "succeeded"), already_terminal=True,
             recorded_result_ids=results,
+            written_datasets=_written_datasets(results_svc, orch_svc, run_id),
         )
     try:
         go = orch_svc.execute_submitted_run(run_id)
@@ -180,7 +208,18 @@ def airflow_callback(
         graph_run_id=run_id, status=go.status or run.status,
         success=go.success, already_terminal=False,
         recorded_result_ids=list(go.result_ids),
+        written_datasets=_written_datasets(results_svc, orch_svc, run_id),
     )
+
+
+def _written_datasets(results_svc, orch_svc, run_id: str) -> list[str]:
+    """Names of the datasets a run computed (changed or not), in first-written order."""
+    names: list[str] = []
+    for result in results_svc.list_results_for_run(run_id):
+        ds = orch_svc._db.get(Dataset, result.dataset_id)
+        if ds is not None and ds.name not in names:
+            names.append(ds.name)
+    return names
 
 
 @router.post(

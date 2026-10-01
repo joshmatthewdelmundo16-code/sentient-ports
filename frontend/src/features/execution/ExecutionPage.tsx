@@ -15,7 +15,10 @@ function describeRun(r: ExecutionRun, index: CatalogIndex | null, names: { scena
 }
 
 function executorLabel(e: string) {
-  return e === 'in_process' ? 'In-process executor' : e === 'airflow' ? 'Airflow (external executor)' : e
+  return e === 'in_process' ? 'In-process executor'
+    : e === 'airflow' ? 'Airflow (external executor)'
+    : e === 'dagster' ? 'Dagster (external executor)'
+    : e
 }
 
 function RunDetail({ runId, index }: { runId: string; index: CatalogIndex | null }) {
@@ -100,7 +103,7 @@ export function ExecutionPage() {
 
   return (
     <div className="stack-lg">
-      <PageHeader title="Execution & governance" description="Every run the platform recorded: which models ran, in what order, on which executor, what they produced — and whether any of it is shared." />
+      <PageHeader title="Execution & Governance" description="Every run the platform recorded: which models ran, in what order, on which executor, what they produced — and whether any of it is shared." />
       {runs.isLoading ? <Loading lines={6} /> : runs.error ? <ErrorState error={runs.error} /> : !runs.data?.length ? (
         <EmptyState title="No runs yet">Run a baseline or a scenario to see it here.</EmptyState>
       ) : (
