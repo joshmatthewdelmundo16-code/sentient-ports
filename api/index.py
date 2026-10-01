@@ -14,20 +14,17 @@ if _PROJECT_ROOT not in sys.path:
 
 
 class _LazyApp:
-    """Thin ASGI wrapper that defers the real import until the first request."""
+    """Thin ASGI wrapper that defers the real import until the first request.
+
+    The real app is loaded before the lifespan scope is forwarded so that
+    Starlette can mark itself started — without this, Starlette 1.x returns
+    404 for every HTTP route because the router is flagged as uninitialised.
+    """
 
     _app = None
     _import_error: "str | None" = None
 
-    async def __call__(self, scope, receive, send):
-        if scope["type"] == "lifespan":
-            # Serverless: skip lifespan — no persistent process to manage.
-            await receive()
-            await send({"type": "lifespan.startup.complete"})
-            await receive()
-            await send({"type": "lifespan.shutdown.complete"})
-            return
-
+    def _load(self) -> None:
         if self._app is None and self._import_error is None:
             try:
                 from backend.app.main import api as _real_app
@@ -36,17 +33,26 @@ class _LazyApp:
                 import traceback
                 self._import_error = traceback.format_exc()
 
+    async def __call__(self, scope, receive, send):
+        self._load()
+
         if self._import_error:
-            body = (
-                "Import failed — see traceback below.\n\n"
-                + self._import_error
-            ).encode()
-            headers = [
-                [b"content-type", b"text/plain; charset=utf-8"],
-                [b"content-length", str(len(body)).encode()],
-            ]
-            await send({"type": "http.response.start", "status": 500, "headers": headers})
-            await send({"type": "http.response.body", "body": body})
+            if scope["type"] == "lifespan":
+                await receive()
+                await send({"type": "lifespan.startup.complete"})
+                await receive()
+                await send({"type": "lifespan.shutdown.complete"})
+            else:
+                body = (
+                    "Import failed — see traceback below.\n\n"
+                    + self._import_error
+                ).encode()
+                headers = [
+                    [b"content-type", b"text/plain; charset=utf-8"],
+                    [b"content-length", str(len(body)).encode()],
+                ]
+                await send({"type": "http.response.start", "status": 500, "headers": headers})
+                await send({"type": "http.response.body", "body": body})
             return
 
         await self._app(scope, receive, send)
