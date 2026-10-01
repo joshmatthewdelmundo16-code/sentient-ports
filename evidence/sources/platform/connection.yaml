@@ -1,0 +1,6 @@
+# The ONLY data source of these reports: CSV tables written by scripts/export_platform_data.py,
+# which reads the platform's HTTP API as a signed-in user. There is deliberately no database
+# connection here — Evidence must not bypass tenant scoping or the approved-output boundary.
+name: platform
+type: csv
+options: {}

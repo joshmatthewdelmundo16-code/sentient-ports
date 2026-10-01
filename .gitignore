@@ -51,3 +51,6 @@ frontend/dist/
 frontend/.vite/
 frontend/test-results/
 frontend/playwright-report/
+
+# Vercel build output
+public/

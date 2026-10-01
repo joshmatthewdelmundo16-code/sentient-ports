@@ -2,7 +2,9 @@
 import { useMemo } from 'react'
 import { useCatalog, useFederationMap } from '../api/queries'
 import type { CatalogDataset, FieldMeta, Metric, Scalar } from '../api/types'
-import { formatPct, formatTransition, formatValue } from '../shared/format'
+import { deltaClass } from '../components/data/delta'
+import { Kpi } from '../components/ui/Kpi'
+import { formatDelta, formatPct, formatTransition, formatValue } from '../shared/format'
 
 export interface CatalogIndex {
   datasets: Map<string, CatalogDataset>
@@ -31,31 +33,23 @@ export function useCatalogIndex(): { index: CatalogIndex | null; loading: boolea
 }
 
 export function KpiCard({ metric }: { metric: Metric }) {
-  const moved = metric.changed
-  const dir = metric.direction === 'increase' ? 'up' : metric.direction === 'decrease' ? 'down' : 'none'
-  return (
-    <div className={`card card-tight kpi ${moved ? 'changed' : ''}`} data-testid="kpi-card">
-      <div className="kpi-label">{metric.field_label}</div>
-      <div className="kpi-value">{formatValue(metric.scenario, metric.unit)}</div>
-      <div className="kpi-from">
-        {moved ? <>Baseline {formatValue(metric.baseline, metric.unit)}</> : <>Same as baseline</>}
-      </div>
-      {metric.kind === 'numeric' ? (
-        <span className={`kpi-delta ${moved ? dir : 'none'}`}>
-          {moved ? (
-            <>
-              <span aria-hidden="true">{dir === 'up' ? '▲' : '▼'}</span>
-              {metric.relative_delta !== null ? formatPct(metric.relative_delta) : 'Changed'}
-            </>
-          ) : (
-            'No change'
-          )}
-        </span>
-      ) : moved ? (
-        <span className="kpi-delta up">Changed</span>
-      ) : null}
-    </div>
+  const numeric = metric.kind === 'numeric'
+  const cls = deltaClass(metric.direction)
+  const meta = !metric.changed ? (
+    <span>Same As Baseline</span>
+  ) : numeric ? (
+    <>
+      {metric.relative_delta !== null ? <span className={`delta ${cls}`}>{formatPct(metric.relative_delta)}</span> : null}
+      <span className={`delta ${cls}`}>{formatDelta(metric.absolute_delta, metric.unit)}</span>
+      <span>Baseline {formatValue(metric.baseline, metric.unit)}</span>
+    </>
+  ) : (
+    <>
+      <span className="delta up">Changed</span>
+      <span>Baseline {formatValue(metric.baseline, metric.unit)}</span>
+    </>
   )
+  return <Kpi testId="kpi-card" label={metric.field_label} value={formatValue(metric.scenario, metric.unit)} meta={meta} />
 }
 
 /** Terminal numeric/boolean metrics in contract order — what a decision-maker reads first. */

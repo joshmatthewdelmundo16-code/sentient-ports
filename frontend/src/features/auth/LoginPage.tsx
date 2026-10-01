@@ -3,6 +3,7 @@ import { Navigate, useNavigate, useSearchParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import { useScope, type Session } from '../../app/scope'
+import { LoadingButton } from '../../components/ui/Button'
 import { Callout, Loading } from '../../shared/ui'
 
 export function LoginPage() {
@@ -67,7 +68,7 @@ export function LoginPage() {
               onChange={(e) => setPassword(e.target.value)} />
           </div>
           {error ? <Callout tone="danger">{error}</Callout> : null}
-          <button className="btn btn-primary" type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+          <LoadingButton variant="primary" type="submit" loading={busy} loadingLabel="Signing In...">Sign In</LoadingButton>
         </form>
         {session?.demo_accounts?.length ? (
           <div style={{ marginTop: 20 }}>

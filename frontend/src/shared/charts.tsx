@@ -1,53 +1,7 @@
 /** Small SVG charts. Hand-rolled (no charting dependency): each is < 150 lines and draws
  *  only what the product needs — relative change bars, time series, and trade-off scatter. */
 import type { ReactNode } from 'react'
-import { formatNumber, formatPct, formatValue } from './format'
-
-export interface ChangeBar {
-  key: string
-  label: string
-  sub?: string
-  relative: number | null
-  detail?: string
-}
-
-/** Diverging bars of relative change, centred on zero. Direction colours are neutral. */
-export function ChangeBars({ bars, title = 'Relative change' }: { bars: ChangeBar[]; title?: string }) {
-  const rowH = 34
-  const labelW = 300
-  const valueW = 110
-  const plotW = 700
-  const width = labelW + plotW + valueW
-  const height = Math.max(1, bars.length) * rowH + 24
-  const maxAbs = Math.max(0.01, ...bars.map((b) => Math.abs(b.relative ?? 0)))
-  const scale = (v: number) => (v / maxAbs) * (plotW / 2 - 8)
-  const cx = labelW + plotW / 2
-  return (
-    <svg className="chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title}>
-      <line x1={cx} x2={cx} y1={4} y2={height - 18} stroke="var(--line-strong)" />
-      {bars.map((b, i) => {
-        const y = 8 + i * rowH
-        const rel = b.relative ?? 0
-        const w = Math.abs(scale(rel))
-        const x = rel >= 0 ? cx : cx - w
-        return (
-          <g key={b.key}>
-            <text x={0} y={y + 13} style={{ fill: 'var(--ink-900)', fontSize: 12 }}>{b.label}</text>
-            {b.sub ? <text x={0} y={y + 26} style={{ fontSize: 10.5 }}>{b.sub}</text> : null}
-            <rect x={x} y={y + 5} width={Math.max(w, rel === 0 ? 0 : 2)} height={16} rx={3}
-              fill={rel > 0 ? 'var(--up)' : 'var(--down)'} opacity={0.85}>
-              {b.detail ? <title>{b.detail}</title> : null}
-            </rect>
-            <text x={width} y={y + 17} textAnchor="end" style={{ fill: 'var(--ink-700)', fontWeight: 600 }}>
-              {b.relative === null ? 'n/a' : formatPct(b.relative)}
-            </text>
-          </g>
-        )
-      })}
-      <text x={cx} y={height - 4} textAnchor="middle">0%</text>
-    </svg>
-  )
-}
+import { formatNumber, formatValue } from './format'
 
 export interface Series {
   key: string

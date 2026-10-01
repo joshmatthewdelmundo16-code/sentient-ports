@@ -50,6 +50,9 @@ export default defineConfig({
     emptyOutDir: true,
     sourcemap: false,
     chunkSizeWarningLimit: 700,
+    // Never inline fonts as data: URIs. The app's CSP is `font-src 'self'`, which blocks
+    // data: fonts; small subsets would otherwise fall under Vite's 4 KB inline threshold.
+    assetsInlineLimit: (file) => (/\.woff2?$/i.test(file) ? false : undefined),
   },
   test: {
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],

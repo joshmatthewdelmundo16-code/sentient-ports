@@ -1,0 +1,59 @@
+/* ============ DATA PRESENTATION — values from the reference ============
+   Decision layout, assumption cells (Excel-style), provenance steps, action bar. */
+
+/* ---- layouts ---- */
+.grid-split { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 16px; }
+.grid-gov { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 1080px) { .grid-split, .grid-gov { grid-template-columns: minmax(0, 1fr); } }
+.self-start { align-self: start; }
+.hl-scenario { color: var(--warning-strong); font-weight: 600; }
+.pill-lg { height: var(--control-h); padding: 0 12px; gap: 7px; }
+.impact-scroll { max-height: 380px; overflow: auto; }
+.stat-line { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--fg-dim); min-width: 0; }
+.stat-line.good { color: var(--good-strong); font-weight: 600; font-size: 12px; }
+
+/* ---- assumption / workbook cell (reference .xl-cell) ---- */
+.xl-cell { display: flex; align-items: center; gap: 9px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 11.5px; }
+.xl-cell + .xl-cell { margin-top: 8px; }
+.xl-cell .xc-ref { font-family: var(--mono); font-size: 10px; color: var(--good-strong); background: var(--good-soft); padding: 1px 5px; border-radius: 3px; flex-shrink: 0; }
+.xl-cell .xc-main { min-width: 0; flex: 1; }
+.xl-cell .xc-name { color: var(--fg); font-weight: 500; overflow-wrap: anywhere; }
+.xl-cell .xc-sub { color: var(--fg-dim); font-size: 10.5px; margin-top: 1px; }
+.xl-cell .xc-val { font-family: var(--mono); color: var(--fg-muted); flex-shrink: 0; text-align: right; font-size: 11.5px; }
+.xl-cell .xc-val b { display: block; color: var(--fg); font-weight: 600; }
+
+/* ---- provenance steps (reference .prov) ---- */
+.prov { background: var(--inset); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 3px 0; }
+.prov-step { display: grid; grid-template-columns: 20px 1fr; gap: 12px; padding: 10px 14px; position: relative; }
+.prov-step:not(:last-child)::after { content: ""; position: absolute; left: 9px; top: 28px; bottom: -2px; width: 1px; background: var(--border); }
+.prov-step .ps-dot { width: 19px; height: 19px; border-radius: 5px; background: var(--surface-3); border: 1px solid var(--border-strong); display: grid; place-items: center; color: var(--fg-dim); font-family: var(--mono); font-size: 9px; font-weight: 600; z-index: 2; }
+.prov-step .ps-k { font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-faint); font-weight: 600; }
+.prov-step .ps-v { font-size: 12px; color: var(--fg); font-weight: 500; margin-top: 1px; overflow-wrap: anywhere; }
+.prov-step .ps-meta { font-size: 10.5px; color: var(--fg-dim); font-family: var(--mono); margin-top: 2px; white-space: pre-line; overflow-wrap: anywhere; }
+
+/* ---- sticky action bar (reference: run status + actions) ---- */
+.action-bar { position: sticky; bottom: 0; z-index: 6; box-shadow: var(--shadow); }
+.action-bar .panel-body { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.action-bar .ab-status { flex: 1; min-width: 180px; }
+
+/* ---- scenario list ---- */
+.sel-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); flex-shrink: 0; display: inline-block; }
+.caret-btn { background: none; border: 0; padding: 0; display: grid; place-items: center; color: inherit; cursor: pointer; }
+table.grid tr.changed td { background: var(--accent-softer); }
+table.grid tr.dim td { color: var(--fg-dim); }
+table.grid tr.group-row td { background: var(--surface-2); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-dim); font-weight: 600; padding: 7px 14px; }
+
+/* ---- grouped bars: baseline vs scenario, indexed (reference .bars) ---- */
+.bars-scroll { overflow-x: auto; padding-top: 6px; }
+.bars { --h: 230px; --lab: 34px; display: flex; align-items: flex-end; gap: 26px; height: var(--h); padding: 12px 8px 0 88px; position: relative; min-width: calc(var(--n, 1) * 84px + 88px); }
+.bars .gridline { position: absolute; left: 0; right: 0; height: 1px; background: var(--border-soft); }
+.bars .gridline span { position: absolute; left: 8px; top: -7px; font-size: 9px; color: var(--fg-faint); font-family: var(--mono); }
+.bargroup { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; z-index: 2; height: 100%; }
+.bargroup .pair { display: flex; align-items: flex-end; gap: 7px; flex: 1 1 0; min-height: 0; width: 100%; justify-content: center; }
+.bar { width: 30px; border-radius: 4px 4px 0 0; position: relative; transition: height 0.5s cubic-bezier(0.3, 0.9, 0.3, 1); min-height: 3px; }
+.bar.base { background: var(--border-strong); }
+.bar.scen { background: var(--accent); }
+.bar .bval { position: absolute; top: -17px; left: 50%; transform: translateX(-50%); font-size: 9.5px; font-family: var(--mono); color: var(--fg-muted); white-space: nowrap; }
+.bargroup .blab { height: var(--lab); font-size: 10.5px; line-height: 1.25; color: var(--fg-dim); font-weight: 500; text-align: center; overflow: hidden; width: 100%; }
+@media (max-width: 620px) { .bars { gap: 12px; } .bar { width: 20px; } }
+@media (prefers-reduced-motion: reduce) { .bar { transition: none; } }

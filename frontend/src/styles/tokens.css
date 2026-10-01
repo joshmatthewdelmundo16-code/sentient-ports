@@ -1,57 +1,155 @@
-/* Design tokens. One place for colour, type, spacing and elevation.
-   Direction colours are deliberately neutral: the platform describes change, it does not
-   judge it (see the D19 comparison service — no better/worse, no ranking). */
+/* Design tokens — the single source for colour, type, spacing, radii, elevation and layout
+   metrics. Values are taken from the visual reference ("Sentient Ports.html"): deep-navy
+   surface hierarchy, teal accent, amber warning, Inter + JetBrains Mono.
+
+   Theme model (same as the reference):
+     · default                        → dark
+     · OS prefers light, no override  → light
+     · <html data-theme="dark|light"> → explicit override (set by the theme toggle)
+   Do not hard-code colours in components; reference these variables. */
+
+:root,
+:root[data-theme="dark"] {
+  /* surfaces */
+  --bg: #0A1628;
+  --surface-1: #0E1F35;
+  --surface-2: #122a44;
+  --surface-3: #16314f;
+  --surface-hover: #193a5c;
+  --inset: #081320;
+  /* lines */
+  --border: #1d3a5a;
+  --border-soft: #172e49;
+  --border-strong: #2a4e78;
+  /* text */
+  --fg: #E8EFF7;
+  --fg-muted: #9FB2CC;
+  --fg-dim: #657d9c;
+  --fg-faint: #44597a;
+  /* accent (teal) */
+  --accent: #00C2C7;
+  --accent-strong: #36D6DB;
+  --accent-soft: rgba(0, 194, 199, 0.12);
+  --accent-softer: rgba(0, 194, 199, 0.06);
+  --accent-line: rgba(0, 194, 199, 0.40);
+  /* semantic */
+  --warning: #F59E0B;
+  --warning-strong: #FBBF4C;
+  --warning-soft: rgba(245, 158, 11, 0.13);
+  --error: #F0564A;
+  --error-strong: #FF7064;
+  --error-soft: rgba(240, 86, 74, 0.13);
+  --good: #34C77B;
+  --good-strong: #45D98D;
+  --good-soft: rgba(52, 199, 123, 0.13);
+  --info: #5B8DEF;
+  --info-soft: rgba(91, 141, 239, 0.13);
+  /* elevation */
+  --shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.55);
+  --shadow-pop: 0 18px 50px -14px rgba(0, 0, 0, 0.70);
+  /* overlays (scrims behind dialogs / drawers) */
+  --scrim: rgba(5, 12, 22, 0.62);
+  --scrim-drawer: rgba(5, 12, 22, 0.55);
+  /* text that sits on a solid accent / semantic fill */
+  --on-accent: #04202a;
+  --on-good: #04241a;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #EEF2F7;
+    --surface-1: #FFFFFF;
+    --surface-2: #F7FAFD;
+    --surface-3: #EDF2F8;
+    --surface-hover: #E6EDF5;
+    --inset: #E9EEF5;
+    --border: #D5DFEC;
+    --border-soft: #E1E8F1;
+    --border-strong: #BDCBDE;
+    --fg: #0C1C30;
+    --fg-muted: #4E627E;
+    --fg-dim: #74879f;
+    --fg-faint: #9fb0c6;
+    --accent: #00A6AB;
+    --accent-strong: #06797E;
+    --accent-soft: rgba(0, 166, 171, 0.12);
+    --accent-softer: rgba(0, 166, 171, 0.05);
+    --accent-line: rgba(0, 166, 171, 0.34);
+    --warning: #C77C06;
+    --warning-strong: #9A6205;
+    --warning-soft: rgba(199, 124, 6, 0.12);
+    --error: #D4382B;
+    --error-strong: #B52C21;
+    --error-soft: rgba(212, 56, 43, 0.10);
+    --good: #15976A;
+    --good-strong: #0F7A55;
+    --good-soft: rgba(21, 151, 106, 0.12);
+    --info: #2F6BD8;
+    --info-soft: rgba(47, 107, 216, 0.10);
+    --shadow: 0 12px 28px -16px rgba(16, 38, 66, 0.30);
+    --shadow-pop: 0 20px 48px -18px rgba(16, 38, 66, 0.34);
+    color-scheme: light;
+  }
+}
+
+/* Explicit light. The reference only honours the OS preference, so its toggle does nothing
+   when the OS is dark; an explicit attribute must win regardless of the OS setting. */
+:root[data-theme="light"] {
+  --bg: #EEF2F7;
+  --surface-1: #FFFFFF;
+  --surface-2: #F7FAFD;
+  --surface-3: #EDF2F8;
+  --surface-hover: #E6EDF5;
+  --inset: #E9EEF5;
+  --border: #D5DFEC;
+  --border-soft: #E1E8F1;
+  --border-strong: #BDCBDE;
+  --fg: #0C1C30;
+  --fg-muted: #4E627E;
+  --fg-dim: #74879f;
+  --fg-faint: #9fb0c6;
+  --accent: #00A6AB;
+  --accent-strong: #06797E;
+  --accent-soft: rgba(0, 166, 171, 0.12);
+  --accent-softer: rgba(0, 166, 171, 0.05);
+  --accent-line: rgba(0, 166, 171, 0.34);
+  --warning: #C77C06;
+  --warning-strong: #9A6205;
+  --warning-soft: rgba(199, 124, 6, 0.12);
+  --error: #D4382B;
+  --error-strong: #B52C21;
+  --error-soft: rgba(212, 56, 43, 0.10);
+  --good: #15976A;
+  --good-strong: #0F7A55;
+  --good-soft: rgba(21, 151, 106, 0.12);
+  --info: #2F6BD8;
+  --info-soft: rgba(47, 107, 216, 0.10);
+  --shadow: 0 12px 28px -16px rgba(16, 38, 66, 0.30);
+  --shadow-pop: 0 20px 48px -18px rgba(16, 38, 66, 0.34);
+  color-scheme: light;
+}
+
+/* Theme-independent tokens. */
 :root {
-  --font-sans: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  /* type */
+  --sans: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 
-  --ink-900: #0f1b2d;
-  --ink-700: #33425a;
-  --ink-500: #5b6980;
-  --ink-400: #7d8aa0;
-  --ink-300: #a9b3c3;
-  --line: #e2e7ee;
-  --line-strong: #cfd7e2;
-  --canvas: #f3f5f8;
-  --surface: #ffffff;
-  --surface-2: #f8fafc;
+  /* layout metrics */
+  --rail: 240px;
+  --rail-collapsed: 60px;
+  --topbar-h: 56px;
+  --control-h: 34px;
+  --control-h-sm: 28px;
+  --control-h-xs: 24px;
 
-  --nav: #0c2039;
-  --nav-2: #13304f;
-  --nav-ink: #c6d2e2;
-  --nav-ink-strong: #ffffff;
+  /* radii */
+  --radius: 7px;
+  --radius-sm: 5px;
+  --radius-lg: 10px;
 
-  --accent: #0a5fc4;
-  --accent-strong: #084d9f;
-  --accent-weak: #e8f0fb;
-
-  --up: #4150c2;
-  --up-weak: #eceefb;
-  --down: #0d7896;
-  --down-weak: #e6f3f7;
-
-  --zone-private: #6647cc;
-  --zone-private-weak: #f1edfc;
-  --zone-shared: #10806f;
-  --zone-shared-weak: #e5f4f1;
-  --zone-network: #1f63b8;
-  --zone-network-weak: #e7eff9;
-
-  --success: #1b7f4f;
-  --success-weak: #e5f4ec;
-  --warning: #9a6412;
-  --warning-weak: #fbf1df;
-  --danger: #b3322a;
-  --danger-weak: #fbeceb;
-  --synthetic: #8a5a00;
-  --synthetic-weak: #fdf3dc;
-
-  --radius-sm: 6px;
-  --radius: 10px;
-  --radius-lg: 14px;
-  --shadow-1: 0 1px 2px rgba(15, 27, 45, 0.06), 0 1px 1px rgba(15, 27, 45, 0.04);
-  --shadow-2: 0 4px 16px rgba(15, 27, 45, 0.08);
-
+  /* spacing scale (the reference uses literal px; these are the steps it repeats) */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -59,7 +157,4 @@
   --space-5: 24px;
   --space-6: 32px;
   --space-7: 48px;
-
-  --sidebar-width: 256px;
-  --topbar-height: 60px;
 }

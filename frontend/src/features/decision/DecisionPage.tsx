@@ -1,13 +1,27 @@
+import { useState } from 'react'
 import { Link } from 'react-router'
 import { ApiError } from '../../api/client'
 import { useExplanation, useExposedOutputs, useFederationMap, useRunScenario } from '../../api/queries'
 import type { Explanation } from '../../api/types'
+import { Button, buttonClass } from '../../components/ui/Button'
+import { Icon } from '../../components/ui/Icon'
+import { KpiRow } from '../../components/ui/Kpi'
+import { Pill } from '../../components/ui/Pill'
+import { useToast } from '../../components/ui/Toast'
 import { useScope } from '../../app/scope'
 import { useSelection } from '../../app/selection'
-import { formatDateTime, formatPct, formatTransition, formatValue, sourceLabel } from '../../shared/format'
-import { ImpactGraph, sourcesFor } from '../../shared/ImpactGraph'
+import { executorLabel, formatDateTime, formatPct, formatTransition, formatValue, sourceLabel } from '../../shared/format'
+import { sourcesFor } from '../../shared/ImpactGraph'
+import { RippleChain } from '../../components/ripple/RippleChain'
+import { buildNodeProvenance, buildRipple, type RippleNode } from '../../components/ripple/rippleModel'
+import { RunSteps } from '../../components/ripple/RunSteps'
 import { Callout, Card, EmptyState, ErrorState, Loading, PageHeader, StatusBadge, TechnicalDetails } from '../../shared/ui'
 import { headlineMetrics, joinNames, KpiCard } from '../common'
+import { ActionBar } from './ActionBar'
+import { ConfigPanel } from './ConfigPanel'
+import { ImpactPanel } from './ImpactPanel'
+import { ProvenanceDrawer, type ProvenanceView } from './ProvenanceDrawer'
+import { buildProvenance } from './provenance'
 
 function relative(from: unknown, to: unknown): number | null {
   return typeof from === 'number' && typeof to === 'number' && from !== 0 ? (to - from) / from : null
@@ -31,7 +45,7 @@ function NarrativeSummary({ ex }: { ex: Explanation }) {
   const steadyNames = unchangedOutputs.map((m) => m.field_label)
 
   return (
-    <Callout tone="neutral" title="Impact summary">
+    <Callout tone="neutral" title="Impact Summary">
       <p style={{ margin: 0 }}>
         {joinNames(inputParts)}.{' '}
         {movedParts.length ? <>As a result, {joinNames(movedParts)}.</> : null}{' '}
@@ -72,120 +86,127 @@ export function WhySummary({ ex }: { ex: Explanation }) {
 
 export function DecisionPage() {
   const { baseline, scenario, workspace, loading, error, refetch } = useSelection()
-  const { scope } = useScope()
+  const { scope, can } = useScope()
   const ex = useExplanation(scenario?.run ? scenario.id : null)
   const run = useRunScenario()
   const exposed = useExposedOutputs()
   const map = useFederationMap()
+  const toast = useToast()
+  const [prov, setProv] = useState<ProvenanceView | null>(null)
+  const [selectedNode, setSelectedNode] = useState<string | null>(null)
+  const [pulse, setPulse] = useState(0)
 
   if (loading) return <Loading lines={6} />
   if (error) return <ErrorState error={error} onRetry={refetch} />
   if (!workspace || !baseline) {
     return (
-      <div className="stack-lg">
+      <div className="stack">
         <PageHeader title="Decision Overview" />
-        <EmptyState title="No baseline in this scope yet">
+        <EmptyState title="No Baseline In This Scope Yet">
           A baseline is an authoritative run of this organization's models. Once one exists, this page compares scenarios against it.
         </EmptyState>
       </div>
     )
   }
 
-  const metrics = ex.data ? headlineMetrics(ex.data.comparison.metrics) : []
+  const data = ex.data
   const notRun = !scenario?.run || (ex.error instanceof ApiError && ex.error.status === 409)
   const upstream = map.data ? sourcesFor(map.data, baseline.target_version_id) : null
   const sources = workspace.assumptions.filter((d) => !upstream || upstream.has(d.id))
+  const metrics = data ? headlineMetrics(data.comparison.metrics) : []
+  const modelsInScope = data ? data.path.length + data.unaffected.length : 0
+
+  const onRun = () => {
+    if (!scenario) return
+    run.mutate(scenario.id, {
+      onSuccess: () => { toast.success('Scenario Complete', scenario.name); setPulse((p) => p + 1) },
+      onError: (e) => toast.error('Scenario Run Failed', e.message),
+    })
+  }
+
+  const mapModels = map.data?.models ?? []
+  const stages = data ? buildRipple(data, mapModels) : []
+  const closeProv = () => { setProv(null); setSelectedNode(null) }
+  const openOverall = () => {
+    if (!scenario || !data) return
+    setSelectedNode(null)
+    setProv({ title: 'Provenance', subtitle: `${scenario.name} · Compared With ${baseline.name}`, steps: buildProvenance({ scenario, baseline, explanation: data, sources }) })
+  }
+  const openNode = (node: RippleNode) => {
+    if (!scenario || !data) return
+    setSelectedNode(node.id)
+    setProv(buildNodeProvenance(node, { explanation: data, scenario, baseline, sources: workspace.assumptions, models: mapModels }))
+  }
 
   return (
-    <div className="stack-lg">
+    <div className="stack">
       <PageHeader
         title="Decision Overview"
-        description="The baseline you are comparing against, the scenario you are evaluating, what changed, and what that did to the results."
-        actions={<Link className="btn" to="/scenarios">Change assumptions</Link>}
+        description={scenario ? (
+          <>Evaluating <span className="hl-scenario">{scenario.name}</span> Against <strong>{baseline.name}</strong>{data ? <> · Across {modelsInScope} Federated Model{modelsInScope === 1 ? '' : 's'}</> : null}</>
+        ) : 'Choose Or Create A Scenario To See Its Impact On The Baseline'}
+        actions={
+          <>
+            <Link className={buttonClass('outline', 'sm')} to="/scenarios"><Icon name="sliders" size={14} /> Change Assumptions</Link>
+            {data && scenario ? <Button variant="outline" size="sm" icon="branch" onClick={openOverall}>View Provenance</Button> : null}
+            {data ? <Pill tone="accent"><Icon name="cpu" size={14} /> {modelsInScope} Model{modelsInScope === 1 ? '' : 's'} In Scope</Pill> : null}
+          </>
+        }
       />
 
-      <Card>
-        <div className="grid-3">
-          <div>
-            <div className="section-title">Scope</div>
-            <div style={{ fontWeight: 600 }}>{scope?.name ?? 'Local workspace'}</div>
-          </div>
-          <div>
-            <div className="section-title">Baseline</div>
-            <div style={{ fontWeight: 600 }}>{baseline.name}</div>
-            <div className="row small muted" style={{ gap: 6 }}>
-              {baseline.run ? <><StatusBadge status={baseline.run.status} /> {formatDateTime(baseline.run.finished_at)}</> : 'Not run yet'}
-            </div>
-          </div>
-          <div>
-            <div className="section-title">Scenario</div>
-            <div style={{ fontWeight: 600 }}>{scenario?.name ?? 'None yet'}</div>
-            <div className="row small muted" style={{ gap: 6 }}>
-              {scenario?.run ? <><StatusBadge status={scenario.run.status} /> {formatDateTime(scenario.run.finished_at)}</> : scenario ? 'Not run yet' : ''}
-            </div>
-          </div>
-        </div>
-      </Card>
-
       {!scenario ? (
-        <EmptyState title="No scenario for this baseline" action={<Link className="btn btn-primary" to="/scenarios">Create a scenario</Link>}>
+        <EmptyState title="No Scenario For This Baseline" action={<Link className={buttonClass('primary')} to="/scenarios">Create A Scenario</Link>}>
           A scenario changes one or more assumptions and runs the same models without changing shared data.
         </EmptyState>
       ) : (
         <>
-          <Card title="What changed" subtitle="Assumptions this scenario overrides. The baseline value is what the baseline run actually used.">
-            {scenario.overrides.length ? (
-              <div className="table-wrap">
-                <table className="table">
-                  <thead><tr><th>Assumption</th><th>Dataset</th><th className="num">Baseline → scenario</th><th className="num">Change</th></tr></thead>
-                  <tbody>
-                    {scenario.overrides.map((o) => (
-                      <tr key={o.id}>
-                        <td><strong>{o.field_label}</strong></td>
-                        <td className="muted">{o.dataset_label}</td>
-                        <td className="num">{formatTransition(o.baseline_value, o.value, o.unit)}</td>
-                        <td className="num">{formatPct(relative(o.baseline_value, o.value))}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : <p className="muted">This scenario does not change any assumption yet.</p>}
-          </Card>
+          {data ? (
+            <KpiRow>
+              {metrics.map((m) => <KpiCard key={`${m.dataset_id}:${m.field}`} metric={m} />)}
+              {/* Filler cells keep the 1px rules continuous on the last row. */}
+              {Array.from({ length: (4 - (metrics.length % 4)) % 4 }, (_, i) => <div key={`pad-${i}`} className="kpi pad" aria-hidden="true" />)}
+            </KpiRow>
+          ) : null}
 
-          {notRun ? (
-            <EmptyState title="Run the scenario to see its impact"
-              action={<button className="btn btn-primary" disabled={run.isPending} onClick={() => run.mutate(scenario.id)}>{run.isPending ? 'Running…' : 'Run scenario'}</button>}>
-              Scenario runs never change shared data and never trigger downstream updates.
-            </EmptyState>
-          ) : ex.isLoading ? <Loading lines={5} /> : ex.error ? <ErrorState error={ex.error} onRetry={() => void ex.refetch()} /> : ex.data ? (
+          {data ? <NarrativeSummary ex={data} /> : null}
+
+          <div className="grid-split">
+            <ConfigPanel scopeName={scope?.name ?? 'Local Workspace'} baseline={baseline} scenario={scenario} />
+            {notRun ? (
+              <Card title={<><Icon name="gauge" size={15} /> Live Decision Impact</>}>
+                <EmptyState title="Run The Scenario To See Its Impact">
+                  Use Run Scenario below. Scenario runs never change shared data and never trigger downstream updates.
+                </EmptyState>
+              </Card>
+            ) : ex.isLoading ? (
+              <Card title={<><Icon name="gauge" size={15} /> Live Decision Impact</>}><Loading lines={5} /></Card>
+            ) : ex.error ? (
+              <Card title={<><Icon name="gauge" size={15} /> Live Decision Impact</>}><ErrorState error={ex.error} onRetry={() => void ex.refetch()} /></Card>
+            ) : data ? (
+              <ImpactPanel metrics={data.comparison.metrics} run={scenario.run} />
+            ) : null}
+          </div>
+
+          {data ? (
             <>
-              <section aria-labelledby="impact-h">
-                <div className="row-between" style={{ marginBottom: 12 }}>
-                  <h2 id="impact-h">Resulting impact</h2>
-                  <span className="small muted">{ex.data.comparison.changed_count} of {ex.data.comparison.metrics.length} recorded results changed</span>
-                </div>
-                <NarrativeSummary ex={ex.data} />
-                <div className="grid-4" style={{ marginTop: 12 }}>
-                  {metrics.map((m) => <KpiCard key={`${m.dataset_id}:${m.field}`} metric={m} />)}
-                </div>
-              </section>
+              <Card
+                title={<><Icon name="network" size={15} /> Change Propagation</>}
+                subtitle="What Changed → Which Models → Downstream → Decision Impact"
+                actions={<Button variant="ghost" size="xs" icon="refresh" onClick={() => setPulse((p) => p + 1)}>Replay</Button>}
+              >
+                {stages.length ? (
+                  <RippleChain stages={stages} selectedId={selectedNode} onSelect={openNode} pulse={pulse} />
+                ) : (
+                  <p className="muted" data-testid="ripple-empty">No assumption was changed in this scenario, so there is nothing to propagate.</p>
+                )}
+                <RunSteps runId={scenario.run?.id} running={run.isPending} models={mapModels} />
+              </Card>
 
-              {map.data ? (
-                <section aria-labelledby="ripple-h" className="ripple-canvas">
-                  <div className="row-between" style={{ marginBottom: 12 }}>
-                    <h2 id="ripple-h">How The Change Rippled Through The Models</h2>
-                    <span className="small muted">Source data → models → results · the highlighted path is what this change touched.</span>
-                  </div>
-                  <ImpactGraph map={map.data} focusVersionId={baseline.target_version_id} explanation={ex.data} />
-                </section>
-              ) : null}
-
-              <div className="grid-2">
-                <Card title="Why this changed" actions={<Link className="btn btn-sm" to="/impact">See the path</Link>}>
-                  <WhySummary ex={ex.data} />
+              <div className="grid-gov">
+                <Card title="Why This Changed" actions={<Link className={buttonClass('outline', 'xs')} to="/impact">See The Path</Link>}>
+                  <WhySummary ex={data} />
                 </Card>
-                <Card title="Where the data came from" actions={<Link className="btn btn-sm" to="/sources">Sources & provenance</Link>}>
+                <Card title="Where The Data Came From" actions={<Link className={buttonClass('outline', 'xs')} to="/sources">Sources &amp; Provenance</Link>}>
                   <div className="stack-sm">
                     {sources.map((d) => (
                       <div key={d.id}>
@@ -199,16 +220,16 @@ export function DecisionPage() {
                   </div>
                 </Card>
               </div>
-              <div className="grid-2">
-                <Card title="What happened during execution" actions={<Link className="btn btn-sm" to="/execution">Execution & governance</Link>}>
+              <div className="grid-gov">
+                <Card title="What Happened During Execution" actions={<Link className={buttonClass('outline', 'xs')} to="/execution">Execution &amp; Governance</Link>}>
                   <div className="stack-sm small">
-                    <div className="row"><StatusBadge status={baseline.run?.status} /> Baseline run · {baseline.run?.executor === 'in_process' ? 'In-process executor' : baseline.run?.executor} · {formatDateTime(baseline.run?.finished_at)}</div>
+                    <div className="row"><StatusBadge status={baseline.run?.status} /> Baseline run · {executorLabel(baseline.run?.executor)} · {formatDateTime(baseline.run?.finished_at)}</div>
                     <div className="row"><StatusBadge status={scenario.run?.status} /> Scenario run · read-only · {formatDateTime(scenario.run?.finished_at)}</div>
-                    <div className="muted">{ex.data.path.length} model{ex.data.path.length === 1 ? '' : 's'} on the change path, {ex.data.unaffected.length} unaffected.</div>
+                    <div className="muted">{data.path.length} model{data.path.length === 1 ? '' : 's'} on the change path, {data.unaffected.length} unaffected.</div>
                   </div>
                   <TechnicalDetails items={{ 'Baseline run': baseline.run?.id, 'Scenario run': scenario.run?.id, Scenario: scenario.id, Baseline: baseline.id }} />
                 </Card>
-                <Card title="What is shared" actions={<Link className="btn btn-sm" to="/governance">Governance</Link>}>
+                <Card title="What Is Shared" actions={<Link className={buttonClass('outline', 'xs')} to="/governance">Governance</Link>}>
                   <p className="small">
                     Scenario results are <strong>never</strong> shared automatically. Only fields that someone with approval rights has explicitly approved leave this scope.
                   </p>
@@ -219,6 +240,10 @@ export function DecisionPage() {
               </div>
             </>
           ) : null}
+
+          <ActionBar run={scenario.run} running={run.isPending} canRun={can('analyst')} onRun={onRun} />
+
+          <ProvenanceDrawer view={prov} onClose={closeProv} />
         </>
       )}
     </div>

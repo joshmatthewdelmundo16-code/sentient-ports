@@ -248,3 +248,13 @@ export function formatDuration(ms: number | null): string {
   if (ms < 1000) return `${Math.max(0, Math.round(ms))} ms`
   return `${(ms / 1000).toFixed(1)} s`
 }
+
+/** Executor names as shown to users (Title Case). */
+export function executorLabel(executor: string | null | undefined): string {
+  switch (executor) {
+    case 'in_process': return 'In-Process Executor'
+    case 'airflow': return 'Airflow (External Executor)'
+    case 'dagster': return 'Dagster (External Executor)'
+    default: return executor ? sentenceCase(executor.replace(/_/g, ' ')) : 'Unknown Executor'
+  }
+}

@@ -43,3 +43,7 @@ frontend/dist/
 frontend/test-results/
 frontend/playwright-report/
 frontend/e2e-scratch.mjs
+
+# D28: the Evidence reports and the Dagster code location run outside the platform image.
+evidence/
+dagster_platform/

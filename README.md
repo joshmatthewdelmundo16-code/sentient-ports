@@ -137,6 +137,22 @@ formula cell with no cached value is rejected with an explanation rather than gu
 
 ---
 
+## Open-source stack: Dagster, Airbyte, Evidence, Airflow (optional)
+
+The platform integrates the open-source stack named in the reference comparison, each as
+optional plumbing that is off by default:
+
+| Tool | Role here | Where |
+|---|---|---|
+| Dagster | optional executor + federation asset graph | `dagster_platform/`, `"executor": "dagster"` |
+| Airflow | optional executor | `backend/app/execution/dags/`, `"executor": "airflow"` |
+| Airbyte | syncs Excel/databases/APIs into a staging schema; `airbyte` connector ingests | `kind: "airbyte"` connector sources |
+| Evidence | Markdown BI reports over a governed API export | `evidence/`, `scripts/export_platform_data.py` |
+
+Setup, verification evidence and limits: [docs/D28_OPEN_SOURCE_STACK.md](docs/D28_OPEN_SOURCE_STACK.md).
+
+---
+
 ## Deployment
 
 See **[DEPLOYMENT.md](../DEPLOYMENT.md)** at the repository root for running this as a

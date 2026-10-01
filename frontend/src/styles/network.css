@@ -1,0 +1,86 @@
+/* ============ NETWORK MAP — values from the reference, drawn with tokens ============ */
+.net-panel { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--surface-1); height: clamp(460px, 66vh, 660px); }
+.net-wrap { display: grid; grid-template-columns: 288px minmax(0, 1fr); height: 100%; min-height: 0; }
+@media (max-width: 1100px) {
+  .net-panel { height: auto; }
+  .net-wrap { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; height: auto; }
+  .net-side { max-height: 240px; border-right: 0 !important; border-bottom: 1px solid var(--border); }
+}
+
+.net-side { border-right: 1px solid var(--border); background: var(--surface-1); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.net-side .ns-head { padding: 14px 16px 12px; border-bottom: 1px solid var(--border-soft); }
+.net-side .ns-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 15px; font-weight: 700; color: var(--fg); }
+.net-side .ns-list { flex: 1; overflow-y: auto; }
+
+.port-item { display: flex; align-items: center; gap: 11px; width: 100%; padding: 11px 16px; border: 0; border-bottom: 1px solid var(--border-soft); border-left: 2px solid transparent; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: 0.1s; }
+.port-item:hover { background: var(--surface-2); }
+.port-item.sel { background: var(--accent-softer); border-left-color: var(--accent); }
+.port-item .pdot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: var(--nc, var(--fg-muted)); }
+.port-item .pi-main { flex: 1; min-width: 0; }
+.port-item .pi-name { font-size: 12.5px; font-weight: 600; color: var(--fg); display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.port-item .pi-code { font-family: var(--mono); font-size: 9.5px; font-weight: 400; color: var(--fg-dim); background: var(--inset); padding: 0 5px; border-radius: 3px; border: 1px solid var(--border-soft); }
+.port-item .pi-sub { font-size: 10.5px; color: var(--fg-dim); margin-top: 2px; }
+.port-item .pi-tp { font-family: var(--mono); font-size: 11px; color: var(--fg-muted); text-align: right; flex-shrink: 0; }
+.port-item .pi-tp small { display: block; color: var(--fg-faint); font-size: 9px; }
+
+.k-info { --nc: var(--info); }
+.k-accent { --nc: var(--accent); }
+.k-warn { --nc: var(--warning); }
+.k-neutral { --nc: var(--fg-muted); }
+
+.net-canvas-wrap { position: relative; overflow: hidden; min-height: 0; background:
+  radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--accent) 6%, transparent), transparent 45%),
+  radial-gradient(circle at 75% 75%, color-mix(in srgb, var(--info) 5%, transparent), transparent 42%),
+  var(--bg); }
+.net-canvas-wrap::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(var(--border-soft) 1px, transparent 1px), linear-gradient(90deg, var(--border-soft) 1px, transparent 1px); background-size: 44px 44px; opacity: 0.5; pointer-events: none; }
+.net-overlay { position: absolute; top: 14px; left: 14px; bottom: 14px; width: 240px; display: flex; flex-direction: column; gap: 12px; z-index: 2; pointer-events: none; }
+.net-overlay > * { pointer-events: auto; }
+.net-stage { position: absolute; inset: 48px 0 0 266px; }
+.net-svg { width: 100%; height: 100%; display: block; position: relative; }
+.net-g { transition: transform 0.2s ease; }
+
+.net-node { cursor: pointer; outline: none; }
+.net-node .halo { fill: transparent; transition: 0.15s; }
+.net-node:hover .halo, .net-node.sel .halo { fill: var(--accent-soft); }
+.net-node:focus-visible .halo { stroke: var(--accent); stroke-width: 2; }
+.net-node .body { fill: color-mix(in srgb, var(--nc, var(--fg-muted)) 18%, transparent); stroke: var(--nc, var(--fg-muted)); stroke-width: 2; }
+.net-node .core { fill: var(--nc, var(--fg-muted)); }
+.net-node .you-ring { fill: none; stroke: var(--accent); stroke-width: 1.5; transform-box: fill-box; transform-origin: center; animation: youPulse 2.4s ease-out infinite; }
+@keyframes youPulse { from { opacity: 0.5; transform: scale(1); } to { opacity: 0; transform: scale(1.7); } }
+@media (prefers-reduced-motion: reduce) { .net-node .you-ring { animation: none; opacity: 0.4; } .net-g { transition: none; } }
+.net-label { font-family: var(--sans); font-size: 10px; font-weight: 600; fill: var(--fg-muted); pointer-events: none; }
+.net-node.sel .net-label { fill: var(--fg); }
+.net-edge { stroke: var(--border-strong); fill: none; stroke-width: 1.4; transition: 0.2s; }
+.net-edge.hot { stroke: var(--accent); stroke-width: 2; }
+.net-edge.dim { opacity: 0.25; }
+
+.net-legend { margin-top: auto; flex-shrink: 0; background: color-mix(in srgb, var(--surface-1) 88%, transparent); border: 1px solid var(--border); border-radius: var(--radius); padding: 11px 13px; display: flex; flex-direction: column; gap: 7px; backdrop-filter: blur(6px); }
+.net-legend .nl { display: flex; align-items: center; gap: 8px; font-size: 10.5px; color: var(--fg-muted); }
+.net-legend .nl i { width: 9px; height: 9px; border-radius: 50%; background: var(--nc); flex-shrink: 0; }
+.net-legend .nl i.ring { background: transparent; border: 1.5px solid var(--accent); }
+.net-legend .nl.note { border-top: 1px solid var(--border-soft); padding-top: 6px; margin-top: 1px; color: var(--fg-dim); }
+.net-ctrls { position: absolute; top: 14px; right: 14px; display: flex; gap: 6px; }
+.net-ctrls button { width: 30px; height: 30px; background: color-mix(in srgb, var(--surface-1) 88%, transparent); border: 1px solid var(--border); border-radius: 6px; color: var(--fg-muted); display: grid; place-items: center; backdrop-filter: blur(6px); cursor: pointer; }
+.net-ctrls button:hover:not(:disabled) { color: var(--fg); border-color: var(--border-strong); }
+.net-ctrls button:disabled { opacity: 0.4; cursor: default; }
+
+.net-tip { position: absolute; pointer-events: none; z-index: 40; background: var(--surface-1); border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 10px 12px; box-shadow: var(--shadow-pop); min-width: 170px; }
+.net-tip .nt-name { font-size: 12.5px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
+.net-tip .nt-name i { width: 9px; height: 9px; border-radius: 50%; background: var(--nc); }
+.net-tip .nt-grid { display: grid; grid-template-columns: auto auto; gap: 3px 14px; margin-top: 8px; font-size: 11px; }
+.net-tip .nt-grid .k { color: var(--fg-dim); }
+.net-tip .nt-grid .v { color: var(--fg); font-family: var(--mono); text-align: right; }
+
+.net-detail { flex: 0 1 auto; min-height: 0; overflow-y: auto; background: color-mix(in srgb, var(--surface-1) 92%, transparent); border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: var(--shadow); backdrop-filter: blur(8px); }
+.net-detail .nd-head { padding: 12px 14px; border-bottom: 1px solid var(--border-soft); }
+.net-detail .nd-name { font-size: 14px; font-weight: 700; color: var(--fg); display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.net-detail .nd-pills { margin-top: 7px; display: flex; gap: 6px; flex-wrap: wrap; }
+.net-detail .nd-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 9px; }
+@media (max-width: 1100px) {
+  .net-canvas-wrap { display: flex; flex-direction: column; }
+  .net-overlay { position: static; width: auto; padding: 12px 14px 0; pointer-events: auto; }
+  .net-legend { display: none; }
+  .net-detail { max-height: none; }
+  .net-stage { position: relative; inset: auto; height: 380px; flex-shrink: 0; }
+  .net-ctrls { top: auto; bottom: 12px; right: 12px; }
+}

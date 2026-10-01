@@ -1,0 +1,58 @@
+/* ============ RIPPLE / DEPENDENCY DIAGRAM — values from the reference ============ */
+.ripple { position: relative; padding: 4px 2px; }
+.ripple-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 10.5px; color: var(--fg-dim); margin-bottom: 14px; }
+.ripple-legend .ll { display: flex; align-items: center; gap: 6px; }
+.ripple-legend .ll i { width: 16px; height: 2px; border-radius: 2px; display: inline-block; }
+.ripple-legend .hint-r { margin-left: auto; }
+
+.chain { display: flex; flex-direction: column; gap: 0; }
+.chain-stage { display: grid; grid-template-columns: 118px minmax(0, 1fr); gap: 14px; align-items: start; }
+.chain-stage .stage-lab { font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--fg-faint); font-weight: 600; padding-top: 14px; text-align: right; }
+.chain-nodes { display: flex; flex-direction: column; gap: 9px; padding: 6px 0; min-width: 0; }
+
+.rnode {
+  display: flex; align-items: center; gap: 11px; width: 100%; text-align: left; font: inherit; color: inherit;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 9px 12px; position: relative; transition: 0.14s; cursor: pointer;
+}
+.rnode:hover { border-color: var(--accent-line); background: var(--surface-3); }
+.rnode.sel { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.rnode .rn-ic { width: 30px; height: 30px; border-radius: 7px; display: grid; place-items: center; flex-shrink: 0; background: var(--inset); border: 1px solid var(--border-soft); }
+.rnode.input .rn-ic { background: var(--warning-soft); color: var(--warning-strong); border-color: transparent; }
+.rnode.affected .rn-ic { background: var(--accent-soft); color: var(--accent-strong); border-color: transparent; }
+.rnode.downstream .rn-ic { background: var(--info-soft); color: var(--info); border-color: transparent; }
+.rnode.impact { background: linear-gradient(90deg, var(--accent-softer), transparent); border-color: var(--accent-line); }
+.rnode.impact .rn-ic { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.rnode .rn-main { min-width: 0; flex: 1; display: flex; flex-direction: column; }
+.rnode .rn-name { font-size: 12.5px; font-weight: 600; color: var(--fg); }
+.rnode .rn-sub { font-size: 10.5px; color: var(--fg-dim); margin-top: 1px; overflow-wrap: anywhere; }
+.rnode .rn-delta { margin-left: auto; flex-shrink: 0; text-align: right; display: flex; flex-direction: column; max-width: 46%; }
+.rnode .rn-delta .sub { font-size: 10.5px; color: var(--fg-dim); font-family: var(--mono); overflow-wrap: anywhere; }
+.stage-connector { height: 16px; display: flex; justify-content: flex-start; padding-left: 130px; color: var(--fg-faint); }
+.stage-connector svg { overflow: visible; }
+.recalc .rnode { animation: recalcPulse 0.9s ease; }
+@keyframes recalcPulse { 0% { box-shadow: 0 0 0 0 var(--accent-soft); } 40% { box-shadow: 0 0 0 4px var(--accent-soft); } 100% { box-shadow: 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .recalc .rnode { animation: none; } }
+@media (max-width: 560px) {
+  .chain-stage { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .chain-stage .stage-lab { text-align: left; padding: 8px 0 0; }
+  .stage-connector { padding-left: 14px; }
+  .rnode .rn-delta { max-width: 42%; }
+}
+
+/* ---- run progress stepper ---- */
+.runlog { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+.runstep { display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: var(--fg-dim); padding: 3px 0; }
+.runstep .rs-ic { width: 16px; height: 16px; flex-shrink: 0; display: grid; place-items: center; }
+.runstep .rs-dur { margin-left: auto; font-size: 10.5px; color: var(--fg-faint); }
+.runstep .rs-err { color: var(--error-strong); }
+.runstep.done { color: var(--fg-muted); }
+.runstep.done .rs-ic { color: var(--good-strong); }
+.runstep.failed { color: var(--error-strong); }
+.runstep.failed .rs-ic { color: var(--error-strong); }
+.runstep.active { color: var(--accent-strong); font-weight: 600; }
+.runstep.skipped { color: var(--fg-faint); }
+.runstep .mini-spin { width: 12px; height: 12px; border: 1.8px solid var(--accent-line); border-right-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; }
+.runsum { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; font-weight: 600; color: var(--fg-dim); }
+.runsum.good { color: var(--good-strong); }
+.runsum.err { color: var(--error-strong); }

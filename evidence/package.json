@@ -1,0 +1,35 @@
+{
+  "name": "platform-evidence-reports",
+  "version": "0.28.0",
+  "private": true,
+  "description": "Evidence (BI-as-code) reports over governed platform exports. Reads only scripts/export_platform_data.py output.",
+  "type": "module",
+  "scripts": {
+    "sources": "evidence sources",
+    "dev": "evidence dev --open /",
+    "build": "evidence build",
+    "build:strict": "evidence build:strict",
+    "preview": "evidence preview"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@evidence-dev/core-components": "5.4.2",
+    "@evidence-dev/csv": "1.0.16",
+    "@evidence-dev/evidence": "40.1.8",
+    "@sveltejs/vite-plugin-svelte": "3.1.2",
+    "autoprefixer": "^10.4.7",
+    "debounce": "^1.2.1",
+    "git-remote-origin-url": "4.0.0",
+    "postcss": "^8.4.14",
+    "postcss-load-config": "^4.0.1",
+    "svelte": "4.2.19",
+    "svelte-preprocess": "5.1.3",
+    "svelte2tsx": "0.7.4",
+    "tailwindcss": "3.4.18",
+    "typescript": "5.4.2",
+    "unist-util-visit": "4.1.2",
+    "vite": "5.4.21"
+  }
+}

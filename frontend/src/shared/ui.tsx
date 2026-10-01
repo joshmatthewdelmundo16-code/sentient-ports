@@ -1,6 +1,12 @@
-/** Shared presentational components. No data fetching here — features pass data in. */
+/** Shared presentational components. No data fetching here — features pass data in.
+ *  The look comes from the reference design system (components/ui, styles/primitives.css);
+ *  this module keeps the API the feature pages already use. */
 import { useId, useState, type ReactNode } from 'react'
 import { ApiError } from '../api/client'
+import { Button } from '../components/ui/Button'
+import { Crane } from '../components/ui/Crane'
+import { Icon } from '../components/ui/Icon'
+import { Pill, type PillTone } from '../components/ui/Pill'
 import { statusLabel, statusTone, type Tone } from './format'
 
 export function PageHeader({ title, description, actions }: {
@@ -9,60 +15,65 @@ export function PageHeader({ title, description, actions }: {
   actions?: ReactNode
 }) {
   return (
-    <header className="page-header">
+    <header className="phead">
       <div>
-        <h1>{title}</h1>
-        {description ? <p>{description}</p> : null}
+        <h1 className="ptitle">{title}</h1>
+        {description ? <p className="psub">{description}</p> : null}
       </div>
-      {actions ? <div className="row">{actions}</div> : null}
+      {actions ? <div className="phead-actions">{actions}</div> : null}
     </header>
   )
 }
 
-export function Card({ title, subtitle, actions, children, className = '', tight = false, id }: {
+export function Card({ title, subtitle, actions, children, className = '', tight = false, flush = false, id }: {
   title?: ReactNode
   subtitle?: ReactNode
   actions?: ReactNode
   children?: ReactNode
   className?: string
   tight?: boolean
+  /** No body padding — for tables that run edge to edge. */
+  flush?: boolean
   id?: string
 }) {
   return (
-    <section className={`card ${tight ? 'card-tight' : ''} ${className}`} id={id}>
+    <section className={`panel ${className}`.trim()} id={id}>
       {title || actions ? (
-        <div className="card-header">
+        <div className="panel-head">
           <div>
-            {title ? <h2>{title}</h2> : null}
-            {subtitle ? <div className="card-sub">{subtitle}</div> : null}
+            {title ? <h2 className="ptt">{title}</h2> : null}
+            {subtitle ? <div className="psubtt">{subtitle}</div> : null}
           </div>
-          {actions ? <div className="row">{actions}</div> : null}
+          {actions ? <div className="panel-actions">{actions}</div> : null}
         </div>
       ) : null}
-      {children}
+      <div className={`panel-body ${tight ? 'tight' : ''} ${flush ? 'flush' : ''}`.trim()}>{children}</div>
     </section>
   )
 }
 
+type BadgeTone = Tone | 'private' | 'shared' | 'network' | 'synthetic'
+
+/** Zone and synthetic badges map onto the pill palette: private = info, shared = accent,
+ *  network = neutral, synthetic = warning. */
+const BADGE_TONE: Record<BadgeTone, PillTone> = {
+  neutral: 'neutral', success: 'good', warning: 'warn', danger: 'err', info: 'info',
+  private: 'info', shared: 'accent', network: 'neutral', synthetic: 'warn',
+}
+
 export function Badge({ tone = 'neutral', children, title }: {
-  tone?: Tone | 'private' | 'shared' | 'network' | 'synthetic'
+  tone?: BadgeTone
   children: ReactNode
   title?: string
 }) {
-  return (
-    <span className={`badge ${tone === 'neutral' ? '' : tone}`} title={title}>
-      {children}
-    </span>
-  )
+  return <Pill tone={BADGE_TONE[tone]} title={title}>{children}</Pill>
 }
 
 export function StatusBadge({ status }: { status: string | null | undefined }) {
-  return (
-    <Badge tone={statusTone(status)}>
-      <span className="dot" aria-hidden="true" />
-      {statusLabel(status)}
-    </Badge>
-  )
+  const tone = statusTone(status)
+  // In-progress work reads as accent (teal) and pulses; the other tones map directly.
+  const pill: PillTone = tone === 'info' ? 'accent' : BADGE_TONE[tone]
+  return <Pill tone={pill} dot running={status === 'running'}>{statusLabel(status)}</Pill>
 }
 
 export function SyntheticBadge({ title = 'Synthetic demonstration data — not real port data' }: { title?: string }) {
@@ -75,7 +86,7 @@ export function Callout({ tone = 'info', title, children }: {
   children?: ReactNode
 }) {
   return (
-    <div className={`callout ${tone === 'neutral' ? '' : tone}`} role={tone === 'danger' ? 'alert' : undefined}>
+    <div className={`callout ${tone === 'neutral' ? '' : tone}`.trim()} role={tone === 'danger' ? 'alert' : undefined}>
       {title ? <strong>{title} </strong> : null}
       {children}
     </div>
@@ -86,7 +97,7 @@ export function Loading({ lines = 3, label = 'Loading' }: { lines?: number; labe
   return (
     <div className="stack-sm" aria-busy="true" aria-label={label}>
       {Array.from({ length: lines }, (_, i) => (
-        <div key={i} className="skeleton" style={{ width: `${90 - i * 12}%`, height: 16 }} />
+        <div key={i} className="skel" style={{ width: `${90 - i * 12}%`, height: 16 }} />
       ))}
     </div>
   )
@@ -95,16 +106,17 @@ export function Loading({ lines = 3, label = 'Loading' }: { lines?: number; labe
 export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   const status = error instanceof ApiError ? error.status : 0
   const title =
-    status === 403 ? 'You do not have access to this' :
-    status === 404 ? 'Not found in this scope' :
-    status === 401 ? 'Sign in required' :
-    'Something went wrong'
+    status === 403 ? 'You Do Not Have Access To This' :
+    status === 404 ? 'Not Found In This Scope' :
+    status === 401 ? 'Sign In Required' :
+    'Something Went Wrong'
   const message = error instanceof Error ? error.message : 'The request failed.'
   return (
     <div className="state" role="alert">
+      <Crane />
       <h3>{title}</h3>
       <p>{message}</p>
-      {onRetry ? <button className="btn btn-sm" onClick={onRetry}>Try again</button> : null}
+      {onRetry ? <Button size="sm" onClick={onRetry}>Try Again</Button> : null}
     </div>
   )
 }
@@ -116,6 +128,7 @@ export function EmptyState({ title, children, action }: {
 }) {
   return (
     <div className="state">
+      <Crane />
       <h3>{title}</h3>
       {children ? <p>{children}</p> : null}
       {action}
@@ -124,7 +137,7 @@ export function EmptyState({ title, children, action }: {
 }
 
 /** Identifiers and hashes live here — secondary, collapsed by default. */
-export function TechnicalDetails({ items, label = 'Technical details' }: {
+export function TechnicalDetails({ items, label = 'Technical Details' }: {
   items: Record<string, string | number | null | undefined>
   label?: string
 }) {
@@ -145,6 +158,7 @@ export function TechnicalDetails({ items, label = 'Technical details' }: {
   )
 }
 
+/** Segmented control (reference `.seg`) with tab semantics. */
 export function Tabs<T extends string>({ tabs, value, onChange, label }: {
   tabs: { id: T; label: string }[]
   value: T
@@ -152,13 +166,13 @@ export function Tabs<T extends string>({ tabs, value, onChange, label }: {
   label: string
 }) {
   return (
-    <div className="tabs" role="tablist" aria-label={label}>
+    <div className="seg" role="tablist" aria-label={label}>
       {tabs.map((t) => (
         <button
           key={t.id}
           type="button"
           role="tab"
-          className="tab"
+          className={t.id === value ? 'on' : ''}
           aria-selected={t.id === value}
           onClick={() => onChange(t.id)}
         >
@@ -188,9 +202,9 @@ export function Disclosure({ summary, children, defaultOpen = false }: {
   const [open, setOpen] = useState(defaultOpen)
   return (
     <div>
-      <button type="button" className="btn btn-ghost btn-sm" aria-expanded={open} onClick={() => setOpen(!open)}>
-        {open ? '▾' : '▸'} {summary}
-      </button>
+      <Button variant="ghost" size="sm" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <Icon name="chevr" size={12} className={open ? 'caret open' : 'caret'} /> {summary}
+      </Button>
       {open ? <div style={{ marginTop: 8 }}>{children}</div> : null}
     </div>
   )

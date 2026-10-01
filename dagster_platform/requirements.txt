@@ -1,0 +1,3 @@
+# Only where Dagster runs — NOT a platform dependency. Verified with Python 3.14.
+dagster==1.13.24
+dagster-webserver==1.13.24

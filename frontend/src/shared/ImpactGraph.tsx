@@ -156,10 +156,10 @@ export function ImpactGraph({ map, focusVersionId, explanation }: {
       <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', minWidth: Math.min(width, 760), height: 'auto', display: 'block' }} role="img" aria-label="Model dependency graph">
         <defs>
           <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--line-strong)" />
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--border-strong)" />
           </marker>
           <marker id="arrow-hot" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--up)" />
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)" />
           </marker>
         </defs>
         {edges.map((e) => {
@@ -185,6 +185,7 @@ export function ImpactGraph({ map, focusVersionId, explanation }: {
           return (
             <g key={n.id} className={`graph-node ${n.kind} ${n.affected ? 'affected' : ''} ${n.dim ? 'dim' : ''}`}
               transform={`translate(${p.x},${p.y})`}>
+              <title>{`${n.label} · ${n.sub ?? ''}`}</title>
               <rect width={NODE_W} height={NODE_H} rx={8} />
               <text x={12} y={19}>{n.label.length > 26 ? `${n.label.slice(0, 25)}…` : n.label}</text>
               <text x={12} y={35} className="sub">{n.sub}</text>

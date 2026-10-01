@@ -7,6 +7,9 @@ import { scoped, scopedGet, useCatalog, useInvalidateScope, useParticipants } fr
 import type { Approval } from '../../api/types'
 import { kindLabel, useScope } from '../../app/scope'
 import { formatDateTime, statusLabel } from '../../shared/format'
+import { Button, LoadingButton } from '../../components/ui/Button'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { useToast } from '../../components/ui/Toast'
 import { Badge, Callout, Card, EmptyState, Loading, TechnicalDetails } from '../../shared/ui'
 
 export function useOrgNames(): (id: string | null | undefined) => string {
@@ -20,6 +23,7 @@ export function NewApproval() {
   const participants = useParticipants()
   const catalog = useCatalog()
   const invalidate = useInvalidateScope()
+  const toast = useToast()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ participant_id: '', dataset_id: '', field_name: '', audience: '', purpose: '', expires: '' })
   const create = useMutation({
@@ -33,7 +37,10 @@ export function NewApproval() {
         expires_at: form.expires ? new Date(`${form.expires}T23:59:59Z`).toISOString() : null,
       },
     }),
-    onSuccess: () => { invalidate(); setOpen(false); setForm({ participant_id: '', dataset_id: '', field_name: '', audience: '', purpose: '', expires: '' }) },
+    onSuccess: () => {
+      invalidate(); setOpen(false); setForm({ participant_id: '', dataset_id: '', field_name: '', audience: '', purpose: '', expires: '' })
+      toast.success('Output Approved', 'Recorded in the audit trail.')
+    },
   })
   if (!can('approver') || !scope) return null
   const mine = (participants.data ?? []).filter((p) => p.status === 'active')
@@ -41,7 +48,7 @@ export function NewApproval() {
   const fields = datasets.find((d) => d.id === form.dataset_id)?.fields ?? []
   const audiences = (session?.organizations ?? []).filter((o) => o.id !== scope.id)
   const ready = form.participant_id && form.dataset_id && form.field_name && form.purpose.trim()
-  const submit = (e: FormEvent) => { e.preventDefault(); if (ready) create.mutate() }
+  const submit = (e: FormEvent) => { e.preventDefault(); if (ready && !create.isPending) create.mutate() }
 
   if (!open) {
     return (
@@ -94,7 +101,7 @@ export function NewApproval() {
         </div>
         {create.error ? <Callout tone="danger">{(create.error as Error).message}</Callout> : null}
         <div className="row">
-          <button className="btn btn-primary" type="submit" disabled={!ready || create.isPending}>{create.isPending ? 'Approving…' : 'Approve'}</button>
+          <LoadingButton variant="primary" type="submit" loading={create.isPending} loadingLabel="Approving..." disabled={!ready}>Approve</LoadingButton>
           <button className="btn" type="button" onClick={() => setOpen(false)}>Cancel</button>
         </div>
       </form>
@@ -105,16 +112,29 @@ export function NewApproval() {
 export function ApprovalActions({ approval, active }: { approval: Approval; active: boolean }) {
   const { can } = useScope()
   const invalidate = useInvalidateScope()
+  const toast = useToast()
+  const [confirming, setConfirming] = useState(false)
   const revoke = useMutation({
     mutationFn: () => api(`/api/approved-outputs/${approval.id}/revoke`, { method: 'POST' }),
-    onSuccess: () => invalidate(),
+    onSuccess: () => { invalidate(); toast.success('Approval Revoked', 'This output is no longer shared.') },
+    onError: (e) => toast.error('Revoke Failed', e.message),
   })
   if (!active || !can('approver')) return null
   return (
-    <button className="btn btn-sm btn-danger" disabled={revoke.isPending} onClick={() => revoke.mutate()}
-      title={revoke.error ? (revoke.error as Error).message : 'Stop sharing this output now'}>
-      {revoke.isPending ? 'Revoking…' : 'Revoke'}
-    </button>
+    <>
+      <Button variant="outline" size="sm" onClick={() => setConfirming(true)} title="Stop sharing this output now">Revoke</Button>
+      <ConfirmDialog
+        open={confirming}
+        tone="danger"
+        title="Revoke Approval?"
+        confirmLabel="Revoke Approval"
+        busyLabel="Revoking..."
+        onConfirm={() => revoke.mutateAsync()}
+        onClose={() => setConfirming(false)}
+      >
+        This output will stop being shared with its audience immediately. The revocation is recorded in the audit trail.
+      </ConfirmDialog>
+    </>
   )
 }
 

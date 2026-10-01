@@ -1,0 +1,72 @@
+/* Overlays and shared motion — values from the reference: drawer, dialog, toast, skeleton, timeline. */
+@keyframes fade { from { opacity: 0; } }
+@keyframes din { from { opacity: 0; transform: translateY(10px) scale(0.98); } }
+@keyframes drin { from { transform: translateX(100%); } }
+
+/* ---- drawer / slide-over ---- */
+.drawer-scrim { position: fixed; inset: 0; background: var(--scrim-drawer); z-index: 900; animation: fade 0.15s; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 480px; max-width: 94vw; background: var(--surface-1); border-left: 1px solid var(--border-strong); box-shadow: var(--shadow-pop); z-index: 901; display: flex; flex-direction: column; animation: drin 0.26s cubic-bezier(0.3, 0.9, 0.3, 1); }
+.drawer .dr-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid var(--border); }
+.drawer .dr-head h3 { font-size: 15px; font-weight: 700; }
+.drawer .dr-head p { font-size: 11px; color: var(--fg-dim); margin-top: 2px; }
+.drawer .dr-body { flex: 1; overflow-y: auto; padding: 18px; }
+.drawer .dr-foot { padding: 14px 18px; border-top: 1px solid var(--border); display: flex; gap: 9px; background: var(--surface-2); }
+.drawer .dr-foot .btn { flex: 1; }
+.close-x { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 6px; border: 1px solid var(--border); background: var(--surface-2); color: var(--fg-muted); padding: 0; }
+.close-x:hover { color: var(--fg); background: var(--surface-3); }
+
+/* ---- skeleton ---- */
+.skel { background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 37%, var(--surface-2) 63%); background-size: 400% 100%; animation: sk 1.4s ease infinite; border-radius: 5px; }
+@keyframes sk { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+
+/* ---- timeline (notifications drawer now; Activity and Governance adopt it later) ---- */
+.timeline { display: flex; flex-direction: column; position: relative; }
+.timeline::before { content: ""; position: absolute; left: 8px; top: 6px; bottom: 6px; width: 1px; background: var(--border); }
+.tl-item { display: grid; grid-template-columns: 18px 1fr; gap: 13px; padding: 0 0 16px; position: relative; }
+.tl-item:last-child { padding-bottom: 0; }
+.tl-dot { width: 17px; height: 17px; border-radius: 50%; background: var(--surface-3); border: 2px solid var(--border-strong); z-index: 2; display: grid; place-items: center; margin-top: 1px; color: var(--fg-dim); }
+.tl-dot.good { border-color: var(--good); background: var(--good-soft); color: var(--good-strong); }
+.tl-dot.warn { border-color: var(--warning); background: var(--warning-soft); color: var(--warning-strong); }
+.tl-dot.err { border-color: var(--error); background: var(--error-soft); color: var(--error-strong); }
+.tl-dot.accent { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-strong); }
+.tl-body { min-width: 0; }
+.tl-top { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+.tl-actor { font-size: 12px; font-weight: 600; color: var(--fg); }
+.tl-act { font-size: 12px; color: var(--fg-muted); }
+.tl-time { font-family: var(--mono); font-size: 10px; color: var(--fg-faint); margin-left: auto; white-space: nowrap; }
+.tl-detail { font-size: 11px; color: var(--fg-dim); margin-top: 3px; }
+
+/* ---- modal / confirm dialog ---- */
+.scrim { position: fixed; inset: 0; background: var(--scrim); backdrop-filter: blur(2px); z-index: 900; display: grid; place-items: center; padding: 20px; animation: fade 0.15s; }
+.dialog { background: var(--surface-1); border: 1px solid var(--border-strong); border-radius: var(--radius-lg); width: 100%; max-width: 460px; box-shadow: var(--shadow-pop); animation: din 0.2s cubic-bezier(0.2, 0.9, 0.3, 1); overflow: hidden; }
+.dialog .dhead { padding: 16px 18px 0; display: flex; gap: 12px; align-items: flex-start; }
+.dialog .dic { width: 38px; height: 38px; border-radius: 9px; display: grid; place-items: center; flex-shrink: 0; }
+.dialog .dic.warn { background: var(--warning-soft); color: var(--warning-strong); }
+.dialog .dic.err { background: var(--error-soft); color: var(--error-strong); }
+.dialog .dic.accent { background: var(--accent-soft); color: var(--accent-strong); }
+.dialog h3 { font-size: 15px; font-weight: 700; }
+.dialog .dbody { padding: 10px 18px 18px 68px; font-size: 12.5px; color: var(--fg-muted); }
+.dialog .dfoot { padding: 14px 18px; border-top: 1px solid var(--border-soft); display: flex; justify-content: flex-end; gap: 9px; background: var(--surface-2); }
+@media (max-width: 520px) { .dialog .dbody { padding-left: 18px; } }
+
+/* ---- toasts ---- */
+.toasts { position: fixed; bottom: 18px; right: 18px; z-index: 2000; display: flex; flex-direction: column; gap: 9px; max-width: 340px; width: calc(100vw - 36px); pointer-events: none; }
+.toast { pointer-events: auto; display: flex; gap: 11px; align-items: flex-start; background: var(--surface-2); border: 1px solid var(--border-strong); border-left-width: 3px; border-radius: var(--radius); padding: 11px 13px; box-shadow: var(--shadow-pop); animation: tin 0.22s cubic-bezier(0.2, 0.9, 0.3, 1); transition: opacity 0.18s, transform 0.18s; }
+.toast.leaving { opacity: 0; transform: translateX(12px); }
+@keyframes tin { from { opacity: 0; transform: translateX(16px); } }
+.toast.good { border-left-color: var(--good); }
+.toast.err { border-left-color: var(--error); }
+.toast.warn { border-left-color: var(--warning); }
+.toast.info { border-left-color: var(--accent); }
+.toast .tic { flex-shrink: 0; margin-top: 1px; }
+.toast.good .tic { color: var(--good-strong); }
+.toast.err .tic { color: var(--error-strong); }
+.toast.warn .tic { color: var(--warning-strong); }
+.toast.info .tic { color: var(--accent-strong); }
+.toast .tbody { min-width: 0; }
+.toast .ttl { font-size: 12px; font-weight: 600; color: var(--fg); }
+.toast .tmsg { font-size: 11px; color: var(--fg-muted); margin-top: 2px; overflow-wrap: anywhere; }
+.toast .tx { margin-left: auto; color: var(--fg-dim); background: none; border: 0; padding: 2px; flex-shrink: 0; }
+.toast .tx:hover { color: var(--fg); }
+
+@media (prefers-reduced-motion: reduce) { .drawer, .drawer-scrim, .skel, .scrim, .dialog, .toast { animation: none; } }

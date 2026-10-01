@@ -1,0 +1,57 @@
+/* TEMPORARY compatibility layer — delete in the final redesign unit.
+
+   The pre-redesign stylesheets and inline styles refer to the old token names (--ink-*,
+   --line, --up, --zone-*, --nav-*…). Until each screen is migrated to the reference tokens
+   in tokens.css, these aliases resolve the old names onto the new, theme-aware palette so
+   unmigrated screens keep working (and follow dark/light) instead of rendering with
+   undefined colours.
+
+   Direction colours stay deliberately neutral (--up / --down are not good/bad): the
+   platform describes change, it does not judge it (D19). Do not add new uses of these names. */
+:root {
+  /* text */
+  --ink-900: var(--fg);
+  --ink-700: var(--fg-muted);
+  --ink-500: var(--fg-dim);
+  --ink-400: var(--fg-dim);
+  --ink-300: var(--fg-faint);
+  /* lines, canvas, surfaces */
+  --line: var(--border);
+  --line-strong: var(--border-strong);
+  --canvas: var(--bg);
+  --surface: var(--surface-1);
+  /* old sidebar palette → the reference rail uses surface-1 */
+  --nav: var(--surface-1);
+  --nav-2: var(--surface-2);
+  --nav-ink: var(--fg-muted);
+  --nav-ink-strong: var(--fg);
+  /* accent */
+  --accent-weak: var(--accent-soft);
+  /* neutral change-direction colours */
+  --up: var(--info);
+  --up-weak: var(--info-soft);
+  --down: var(--accent-strong);
+  --down-weak: var(--accent-soft);
+  /* zones: private / shared / network */
+  --zone-private: var(--info);
+  --zone-private-weak: var(--info-soft);
+  --zone-shared: var(--accent-strong);
+  --zone-shared-weak: var(--accent-soft);
+  --zone-network: var(--fg-muted);
+  --zone-network-weak: var(--surface-3);
+  /* semantic */
+  --success: var(--good-strong);
+  --success-weak: var(--good-soft);
+  --warning-weak: var(--warning-soft);
+  --danger: var(--error-strong);
+  --danger-weak: var(--error-soft);
+  --synthetic: var(--warning-strong);
+  --synthetic-weak: var(--warning-soft);
+  /* elevation, type, layout */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --shadow-2: var(--shadow-pop);
+  --font-sans: var(--sans);
+  --font-mono: var(--mono);
+  --sidebar-width: var(--rail);
+  --topbar-height: var(--topbar-h);
+}

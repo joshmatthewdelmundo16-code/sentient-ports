@@ -1,6 +1,5 @@
-import { Fragment, useMemo, useState, type FormEvent } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import {
-  useCreateScenario,
   useExplanation,
   useFederationMap,
   useRemoveOverride,
@@ -10,10 +9,19 @@ import {
 import type { CatalogDataset, FieldMeta, Metric } from '../../api/types'
 import { useScope } from '../../app/scope'
 import { useSelection } from '../../app/selection'
-import { ChangeBars } from '../../shared/charts'
+import { IndexedBars } from '../../components/charts/IndexedBars'
+import { deltaClass, directionPill } from '../../components/data/delta'
+import { Button, LoadingButton } from '../../components/ui/Button'
+import { Icon } from '../../components/ui/Icon'
+import { Pill } from '../../components/ui/Pill'
+import { Switch } from '../../components/ui/Switch'
+import { useToast } from '../../components/ui/Toast'
 import { formatDelta, formatPct, formatValue, prettyUnit } from '../../shared/format'
 import { sourcesFor } from '../../shared/ImpactGraph'
-import { Badge, Callout, Card, EmptyState, ErrorState, Loading, PageHeader, StatusBadge } from '../../shared/ui'
+import { Callout, Card, EmptyState, ErrorState, Loading, PageHeader } from '../../shared/ui'
+import { NewScenarioDrawer } from './NewScenarioDrawer'
+import { ScenarioList } from './ScenarioList'
+import { barScale, groupMetrics, indexBars } from './scenarioModel'
 
 function validate(field: FieldMeta, raw: string): { value?: number; error?: string } {
   if (raw.trim() === '') return { error: 'Enter a value.' }
@@ -24,40 +32,13 @@ function validate(field: FieldMeta, raw: string): { value?: number; error?: stri
   return { value: n }
 }
 
-function NewScenario({ baselineId, onCreated }: { baselineId: string; onCreated: (id: string) => void }) {
-  const create = useCreateScenario()
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const submit = (e: FormEvent) => {
-    e.preventDefault()
-    if (!name.trim()) return
-    create.mutate(
-      { baseline_id: baselineId, name: name.trim(), description: description.trim() || undefined },
-      { onSuccess: (s) => { setName(''); setDescription(''); onCreated(s.id) } },
-    )
-  }
-  return (
-    <form onSubmit={submit} className="row" style={{ alignItems: 'flex-end' }}>
-      <div className="field" style={{ minWidth: 220 }}>
-        <label htmlFor="new-scenario-name">Scenario name</label>
-        <input id="new-scenario-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="For example: Two new berths" />
-      </div>
-      <div className="field" style={{ flex: 1, minWidth: 220 }}>
-        <label htmlFor="new-scenario-desc">Description (optional)</label>
-        <input id="new-scenario-desc" className="input" value={description} onChange={(e) => setDescription(e.target.value)} />
-      </div>
-      <button className="btn" type="submit" disabled={!name.trim() || create.isPending}>Create scenario</button>
-      {create.error ? <span className="small" style={{ color: 'var(--danger)' }}>{(create.error as Error).message}</span> : null}
-    </form>
-  )
-}
-
 function AssumptionEditor({ datasets }: { datasets: CatalogDataset[] }) {
   const { scenario } = useSelection()
   const { can } = useScope()
   const save = useSetOverrides()
   const remove = useRemoveOverride()
   const run = useRunScenario()
+  const toast = useToast()
   const [draft, setDraft] = useState<Record<string, string>>({})
   const overrides = new Map((scenario?.overrides ?? []).map((o) => [`${o.dataset_id}:${o.field}`, o]))
   const editable = can('analyst')
@@ -77,32 +58,39 @@ function AssumptionEditor({ datasets }: { datasets: CatalogDataset[] }) {
   const invalid = Object.keys(errors).length > 0
 
   const onSave = () =>
-    save.mutate({ scenarioId: scenario.id, overrides: changes }, { onSuccess: () => setDraft({}) })
+    save.mutate({ scenarioId: scenario.id, overrides: changes }, { onSuccess: () => { setDraft({}); toast.success('Assumptions Saved', scenario.name) } })
+
+  const onRun = () =>
+    run.mutate(scenario.id, { onSuccess: () => toast.success('Scenario Complete', `${scenario.name} · results updated`) })
 
   return (
     <Card
-      title={`Assumptions in “${scenario.name}”`}
+      flush
+      title={<><Icon name="sliders" size={15} /> Assumptions In “{scenario.name}”</>}
       subtitle="Set a scenario value to override the baseline. Values are checked against the data contract before they are saved."
       actions={
         <>
-          <button className="btn" disabled={!editable || !dirty || invalid || save.isPending} onClick={onSave}>
-            {save.isPending ? 'Saving…' : 'Save assumptions'}
-          </button>
-          <button className="btn btn-primary" disabled={!editable || dirty || run.isPending} onClick={() => run.mutate(scenario.id)}
-            title={dirty ? 'Save your changes first' : undefined}>
-            {run.isPending ? 'Running…' : 'Run scenario'}
-          </button>
+          <LoadingButton loading={save.isPending} loadingLabel="Saving..." disabled={!editable || !dirty || invalid} onClick={onSave}>
+            Save Assumptions
+          </LoadingButton>
+          <LoadingButton variant="primary" icon="play" loading={run.isPending} loadingLabel="Running Scenario..." disabled={!editable || dirty}
+            onClick={onRun} title={dirty ? 'Save your changes first' : undefined}>
+            Run Scenario
+          </LoadingButton>
         </>
       }
     >
-      {!editable ? <Callout tone="warning">Your role in this scope can view scenarios but not change or run them.</Callout> : null}
-      {save.error ? <Callout tone="danger">{(save.error as Error).message}</Callout> : null}
-      {run.error ? <Callout tone="danger">{(run.error as Error).message}</Callout> : null}
-      {run.data ? <Callout tone="success">Scenario run finished. Results below are from the new run.</Callout> : null}
-      <div className="table-wrap" style={{ marginTop: 8 }}>
-        <table className="table">
+      {!editable || save.error || run.error ? (
+        <div className="stack-sm" style={{ padding: 16, paddingBottom: 0 }}>
+          {!editable ? <Callout tone="warning">Your role in this scope can view scenarios but not change or run them.</Callout> : null}
+          {save.error ? <Callout tone="danger">{(save.error as Error).message}</Callout> : null}
+          {run.error ? <Callout tone="danger">{(run.error as Error).message}</Callout> : null}
+        </div>
+      ) : null}
+      <div className="impact-scroll" style={{ maxHeight: 520 }}>
+        <table className="grid">
           <thead>
-            <tr><th>Assumption</th><th className="num">Current data</th><th style={{ width: 260 }}>Scenario value</th><th /></tr>
+            <tr><th>Assumption</th><th className="right">Current Data</th><th style={{ width: 260 }}>Scenario Value</th><th /></tr>
           </thead>
           <tbody>
             {rows.map(({ d, f }) => {
@@ -113,10 +101,10 @@ function AssumptionEditor({ datasets }: { datasets: CatalogDataset[] }) {
               return (
                 <tr key={key} className={ov ? 'changed' : ''}>
                   <td>
-                    <strong>{f.label}</strong>
-                    <div className="tiny muted">{d.label}{f.min !== null || f.max !== null ? ` · allowed ${f.min !== null ? `≥ ${formatValue(f.min, f.unit)}` : ''}${f.max !== null ? ` ≤ ${formatValue(f.max, f.unit)}` : ''}` : ''}</div>
+                    <div className="cellmain">{f.label}</div>
+                    <div className="sub">{d.label}{f.min !== null || f.max !== null ? ` · allowed ${f.min !== null ? `≥ ${formatValue(f.min, f.unit)}` : ''}${f.max !== null ? ` ≤ ${formatValue(f.max, f.unit)}` : ''}` : ''}</div>
                   </td>
-                  <td className="num">{formatValue(current ?? null, f.unit)}</td>
+                  <td className="right num">{formatValue(current ?? null, f.unit)}</td>
                   <td>
                     <div className="input-group">
                       <input className="input" inputMode="decimal" aria-label={`Scenario value for ${f.label}`} disabled={!editable}
@@ -124,14 +112,17 @@ function AssumptionEditor({ datasets }: { datasets: CatalogDataset[] }) {
                         onChange={(e) => setDraft({ ...draft, [key]: e.target.value })} />
                       <span className="input-addon">{prettyUnit(f.unit) || '—'}</span>
                     </div>
-                    {errors[key] ? <div className="tiny" style={{ color: 'var(--danger)' }}>{errors[key]}</div> : null}
+                    {errors[key] ? <div className="tiny" style={{ color: 'var(--error-strong)', marginTop: 3 }}>{errors[key]}</div> : null}
                   </td>
                   <td>
                     {ov ? (
                       <div className="row" style={{ gap: 6 }}>
-                        <Badge tone="info">Override</Badge>
+                        <Pill tone="info">Override</Pill>
                         {editable ? (
-                          <button className="btn btn-sm btn-ghost" onClick={() => remove.mutate({ scenarioId: scenario.id, overrideId: ov.id })}>Remove</button>
+                          <LoadingButton variant="ghost" size="xs" loading={remove.isPending && remove.variables?.overrideId === ov.id} loadingLabel="Removing..."
+                            onClick={() => remove.mutate({ scenarioId: scenario.id, overrideId: ov.id }, { onSuccess: () => toast.success('Override Removed', f.label) })}>
+                            Remove
+                          </LoadingButton>
                         ) : null}
                       </div>
                     ) : null}
@@ -142,46 +133,69 @@ function AssumptionEditor({ datasets }: { datasets: CatalogDataset[] }) {
           </tbody>
         </table>
       </div>
-      {dirty ? <p className="small muted" style={{ marginTop: 8 }}>{changes.length} unsaved change{changes.length === 1 ? '' : 's'}. Save, then run the scenario to see the effect.</p> : null}
+      {dirty ? <p className="small muted" style={{ padding: '10px 16px' }}>{changes.length} unsaved change{changes.length === 1 ? '' : 's'}. Save, then run the scenario to see the effect.</p> : null}
+    </Card>
+  )
+}
+
+function ComparisonBars({ metrics }: { metrics: Metric[] }) {
+  const { bars, skipped } = useMemo(() => indexBars(metrics), [metrics])
+  if (!bars.length && !skipped) return null
+  return (
+    <Card
+      title={<><Icon name="bars" size={15} /> Baseline Vs Scenario</>}
+      subtitle="Indexed · Baseline = 100 · Results That Moved"
+      actions={
+        <div className="ripple-legend" style={{ margin: 0 }}>
+          <span className="ll"><i style={{ background: 'var(--border-strong)', height: 9, width: 9, borderRadius: 2 }} /> Baseline</span>
+          <span className="ll"><i style={{ background: 'var(--accent)', height: 9, width: 9, borderRadius: 2 }} /> Scenario</span>
+        </div>
+      }
+    >
+      {bars.length ? <IndexedBars bars={bars} scale={barScale(bars)} /> : null}
+      {skipped ? <p className="small muted" style={{ marginTop: 10 }}>{skipped} result{skipped === 1 ? ' is' : 's are'} not drawn because {skipped === 1 ? 'its' : 'their'} baseline is zero or not a number — {skipped === 1 ? 'it is' : 'they are'} in the table below.</p> : null}
     </Card>
   )
 }
 
 function ComparisonTable({ metrics }: { metrics: Metric[] }) {
   const [showAll, setShowAll] = useState(false)
-  const shown = showAll ? metrics : metrics.filter((m) => m.changed)
-  const groups = useMemo(() => {
-    const g = new Map<string, Metric[]>()
-    for (const m of shown) g.set(m.dataset_label, [...(g.get(m.dataset_label) ?? []), m])
-    return [...g.entries()]
-  }, [shown])
+  const groups = useMemo(() => groupMetrics(metrics, showAll), [metrics, showAll])
   return (
     <Card
-      title="Every metric"
+      flush
+      title={<><Icon name="grid" size={15} /> Metric Detail</>}
       subtitle="Values come from the recorded results of the two exact runs. The platform describes change; it does not judge it."
-      actions={
-        <label className="row small" style={{ gap: 6 }}>
-          <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Show unchanged
-        </label>
-      }
+      actions={<Switch checked={showAll} onChange={setShowAll} label="Show Unchanged" />}
     >
-      {shown.length === 0 ? <p className="muted">No metric changed. Tick “Show unchanged” to see every value.</p> : (
-        <div className="table-wrap">
-          <table className="table" data-testid="comparison-table">
-            <thead><tr><th>Metric</th><th className="num">Baseline</th><th className="num">Scenario</th><th className="num">Change</th><th className="num">%</th></tr></thead>
+      {groups.length === 0 ? <p className="muted" style={{ padding: 16 }}>No metric changed. Turn on Show Unchanged to see every value.</p> : (
+        <div className="impact-scroll" style={{ maxHeight: 560 }}>
+          <table className="grid" data-testid="comparison-table">
+            <thead><tr><th>Metric</th><th className="right">Baseline</th><th className="right">Scenario</th><th className="right">Delta</th><th>Impact</th></tr></thead>
             <tbody>
               {groups.map(([label, ms]) => (
                 <Fragment key={label}>
-                  <tr><td colSpan={5} className="section-title" style={{ background: 'var(--surface-2)' }}>{label}</td></tr>
-                  {ms.map((m) => (
-                    <tr key={`${m.dataset_id}:${m.field}`} className={m.changed ? 'changed' : 'dim'}>
-                      <td>{m.field_label}</td>
-                      <td className="num">{formatValue(m.baseline, m.unit)}</td>
-                      <td className="num">{formatValue(m.scenario, m.unit)}</td>
-                      <td className="num">{m.kind === 'numeric' ? formatDelta(m.absolute_delta, m.unit) : m.changed ? 'Changed' : 'No change'}</td>
-                      <td className="num">{m.kind === 'numeric' ? (m.baseline_zero ? 'n/a' : formatPct(m.relative_delta)) : ''}</td>
-                    </tr>
-                  ))}
+                  <tr className="group-row"><td colSpan={5}>{label}</td></tr>
+                  {ms.map((m) => {
+                    const numeric = m.kind === 'numeric'
+                    const pill = directionPill(m.direction, m.changed, numeric)
+                    return (
+                      <tr key={`${m.dataset_id}:${m.field}`} className={m.changed ? 'changed' : 'dim'}>
+                        <td><div className="cellmain">{m.field_label}{m.terminal ? <> <span className="tag">Result</span></> : null}</div>{m.unit ? <div className="sub">{prettyUnit(m.unit)}</div> : null}</td>
+                        <td className="right num">{formatValue(m.baseline, m.unit)}</td>
+                        <td className="right num strong">{formatValue(m.scenario, m.unit)}</td>
+                        <td className="right">
+                          {numeric && m.changed ? (
+                            <>
+                              <span className={`delta ${deltaClass(m.direction)}`}>{m.baseline_zero || m.relative_delta === null ? 'n/a' : formatPct(m.relative_delta)}</span>
+                              <div className="sub num">{formatDelta(m.absolute_delta, m.unit)}</div>
+                            </>
+                          ) : <span className="delta flat">{m.changed ? 'Changed' : '—'}</span>}
+                        </td>
+                        <td><Pill tone={pill.tone} dot>{pill.label}</Pill></td>
+                      </tr>
+                    )
+                  })}
                 </Fragment>
               ))}
             </tbody>
@@ -193,53 +207,43 @@ function ComparisonTable({ metrics }: { metrics: Metric[] }) {
 }
 
 export function ScenarioPage() {
-  const { baseline, scenario, workspace, loading, error, refetch, selectScenario } = useSelection()
+  const { baseline, scenario, scenariosForBaseline, workspace, loading, error, refetch, selectScenario } = useSelection()
   const map = useFederationMap()
   const ex = useExplanation(scenario?.run ? scenario.id : null)
+  const [creating, setCreating] = useState(false)
 
   if (loading) return <Loading lines={6} />
   if (error) return <ErrorState error={error} onRetry={refetch} />
   if (!workspace || !baseline) {
-    return (<div className="stack-lg"><PageHeader title="Scenario Comparison" /><EmptyState title="No baseline in this scope yet" /></div>)
+    return (<div className="stack"><PageHeader title="Scenario Comparison" /><EmptyState title="No Baseline In This Scope Yet" /></div>)
   }
   const sourceIds = map.data ? sourcesFor(map.data, baseline.target_version_id) : new Set<string>()
   const datasets = workspace.assumptions.filter((d) => sourceIds.size === 0 || sourceIds.has(d.id))
-  const changed = ex.data ? ex.data.comparison.metrics.filter((m) => m.changed && m.kind === 'numeric' && m.terminal) : []
 
   return (
-    <div className="stack-lg">
+    <div className="stack">
       <PageHeader
         title="Scenario Comparison"
         description={<>Compare <strong>{scenario?.name ?? 'a scenario'}</strong> with the baseline <strong>{baseline.name}</strong>. Scenario runs are read-only: they never change shared data or trigger downstream updates.</>}
+        actions={<Button variant="primary" size="sm" icon="plus" onClick={() => setCreating(true)} data-testid="new-scenario">New Scenario</Button>}
       />
-      <Card title="New scenario" subtitle={`Derived from the baseline “${baseline.name}”.`}>
-        <NewScenario baselineId={baseline.id} onCreated={selectScenario} />
-      </Card>
+      <NewScenarioDrawer open={creating} onClose={() => setCreating(false)} baselineId={baseline.id} baselineName={baseline.name} onCreated={selectScenario} />
+
+      <ScenarioList scenarios={scenariosForBaseline} selectedId={scenario?.id} onSelect={selectScenario} onNew={() => setCreating(true)} />
+
       {scenario ? (
         <>
-          <div className="row small muted">
-            <span>Scenario status:</span> <StatusBadge status={scenario.run?.status ?? scenario.status} />
-          </div>
           <AssumptionEditor datasets={datasets} />
           {ex.isLoading ? <Loading /> : ex.error && scenario.run ? <ErrorState error={ex.error} /> : ex.data ? (
             <>
-              {changed.length ? (
-                <Card title="Change magnitude" subtitle="Relative change of each result that moved, scenario against baseline.">
-                  <ChangeBars bars={changed.map((m) => ({
-                    key: `${m.dataset_id}:${m.field}`, label: m.field_label, sub: m.dataset_label, relative: m.relative_delta,
-                    detail: `${formatValue(m.baseline, m.unit)} → ${formatValue(m.scenario, m.unit)}`,
-                  }))} />
-                </Card>
-              ) : null}
+              <ComparisonBars metrics={ex.data.comparison.metrics} />
               <ComparisonTable metrics={ex.data.comparison.metrics} />
             </>
           ) : (
-            <EmptyState title="Not run yet">Save the assumptions you want to test, then run the scenario.</EmptyState>
+            <EmptyState title="Not Run Yet">Save the assumptions you want to test, then run the scenario.</EmptyState>
           )}
         </>
-      ) : (
-        <EmptyState title="No scenario yet">Create a scenario above to test a change against this baseline.</EmptyState>
-      )}
+      ) : null}
     </div>
   )
 }

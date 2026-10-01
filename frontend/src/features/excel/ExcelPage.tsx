@@ -14,6 +14,8 @@ import {
 import type { IngestionOut, WorkbookPreview } from '../../api/types'
 import { useScope } from '../../app/scope'
 import { formatDateTime, formatDelta, formatPct, formatTransition, formatValue, shortId, statusLabel } from '../../shared/format'
+import { LoadingButton } from '../../components/ui/Button'
+import { useToast } from '../../components/ui/Toast'
 import { Badge, Callout, Card, ErrorState, Loading, PageHeader, StatusBadge, TechnicalDetails } from '../../shared/ui'
 
 type StepState = 'done' | 'current' | 'failed' | 'todo'
@@ -47,6 +49,7 @@ export function ExcelPage() {
   const preview = useMappingPreview(key)
   const validate = useValidateWorkbook()
   const commit = useCommitWorkbook()
+  const toast = useToast()
   const [file, setFile] = useState<File | null>(null)
   const [dragging, setDragging] = useState(false)
   const [committed, setCommitted] = useState<IngestionOut | null>(null)
@@ -118,7 +121,9 @@ export function ExcelPage() {
           </Step>
 
           <Step n={2} title="Inspect" state={st(Boolean(result), Boolean(validate.error), Boolean(file) && !result)}>
-            {validate.isPending ? <Loading lines={2} /> : null}
+            {validate.isPending ? (
+              <div className="row small muted" role="status"><span className="spin" aria-hidden="true" /> Validating...</div>
+            ) : null}
             {validate.error ? <ErrorState error={validate.error} /> : null}
             {result ? (
               <div className="small">
@@ -182,11 +187,19 @@ export function ExcelPage() {
           <Step n={5} title="Commit" state={st(Boolean(committed && !rejected), rejected, Boolean(result?.valid) && !committed)}>
             {!canWrite ? <Callout tone="warning">Your role in this scope cannot commit data.</Callout> : null}
             <div className="row">
-              <button className="btn btn-primary" data-testid="commit-workbook"
-                disabled={!canWrite || !file || !key || !result?.valid || commit.isPending || Boolean(committed)}
-                onClick={() => file && key && commit.mutate({ mapping: key, file }, { onSuccess: setCommitted })}>
-                {commit.isPending ? 'Committing…' : 'Commit workbook'}
-              </button>
+              <LoadingButton variant="primary" data-testid="commit-workbook" loading={commit.isPending} loadingLabel="Committing..."
+                disabled={!canWrite || !file || !key || !result?.valid || Boolean(committed)}
+                onClick={() => file && key && commit.mutate({ mapping: key, file }, {
+                  onSuccess: (r) => {
+                    setCommitted(r)
+                    if (r.status === 'rejected') toast.error('Workbook Rejected', r.error ?? file.name)
+                    else if (r.status === 'unchanged') toast.info('No Changes Detected', `${file.name} was recorded as an unchanged upload.`)
+                    else toast.success('Workbook Committed', file.name)
+                  },
+                  onError: (e) => toast.error('Commit Failed', e.message),
+                })}>
+                Commit Workbook
+              </LoadingButton>
               {committed ? <StatusBadge status={committed.status} /> : null}
             </div>
             {commit.error ? <ErrorState error={commit.error} /> : null}

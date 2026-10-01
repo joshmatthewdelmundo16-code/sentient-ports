@@ -1,0 +1,7 @@
+node_modules/
+.evidence/
+build/
+.svelte-kit/
+# Exported data is regenerated from the platform; never commit an organization's export.
+sources/platform/*.csv
+sources/federation_map.json

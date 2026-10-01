@@ -1,10 +1,21 @@
 import { Link } from 'react-router'
 import { useExplanation, useFederationMap } from '../../api/queries'
 import { useSelection } from '../../app/selection'
+import { RippleLegend } from '../../components/ripple/RippleLegend'
+import { buttonClass } from '../../components/ui/Button'
+import { Icon } from '../../components/ui/Icon'
 import { formatPct, formatTransition } from '../../shared/format'
 import { ImpactGraph } from '../../shared/ImpactGraph'
 import { Callout, Card, EmptyState, ErrorState, Loading, PageHeader } from '../../shared/ui'
 import { joinNames } from '../common'
+
+/** Colour key for the dependency graph (same palette as the ripple on Decision Overview). */
+const GRAPH_LEGEND = [
+  { label: 'Source Data', color: 'var(--warning)' },
+  { label: 'On The Change Path', color: 'var(--accent)' },
+  { label: 'Results', color: 'var(--accent-strong)' },
+  { label: 'Not Affected By This Change', color: 'var(--border-strong)' },
+]
 
 export function ImpactPage() {
   const { baseline, scenario } = useSelection()
@@ -15,29 +26,26 @@ export function ImpactPage() {
     ex.data?.comparison.metrics.find((m) => m.dataset_id === datasetId && m.field === field)
 
   return (
-    <div className="stack-lg">
+    <div className="stack">
       <PageHeader
         title="Impact & Why"
         description="How a change travels through the models. Each step is derived from the models' declared inputs and the recorded results — not written by hand."
       />
       {map.isLoading ? <Loading lines={5} /> : map.error ? <ErrorState error={map.error} /> : map.data ? (
         <Card
-          title="Dependency and impact path"
+          title={<><Icon name="network" size={15} /> Dependency And Impact Path</>}
           subtitle={ex.data ? `Highlighted: the path from ${joinNames(ex.data.changes.map((c) => c.field_label))} to the results it changed.` : 'Every model the baseline depends on, in dependency order.'}
         >
+          <RippleLegend items={ex.data ? GRAPH_LEGEND : GRAPH_LEGEND.filter((l) => l.label !== 'On The Change Path' && l.label !== 'Not Affected By This Change')} />
           <ImpactGraph map={map.data} focusVersionId={baseline?.target_version_id} explanation={ex.data ?? null} />
-          <div className="legend" style={{ marginTop: 10 }}>
-            <span><span className="legend-swatch" style={{ background: 'var(--up)' }} />On the change path</span>
-            <span><span className="legend-swatch" style={{ background: 'var(--line-strong)' }} />Not affected by this change</span>
-          </div>
         </Card>
       ) : null}
 
       {!scenario?.run ? (
-        <EmptyState title="Run a scenario to trace its impact" action={<Link className="btn" to="/scenarios">Scenario comparison</Link>} />
+        <EmptyState title="Run A Scenario To Trace Its Impact" action={<Link className={buttonClass('outline')} to="/scenarios">Scenario Comparison</Link>} />
       ) : ex.isLoading ? <Loading /> : ex.error ? <ErrorState error={ex.error} /> : ex.data ? (
-        <div className="grid-2">
-          <Card title="Why, step by step">
+        <div className="grid-gov">
+          <Card title="Why, Step By Step">
             <div className="why-step">
               <span className="why-num">0</span>
               <div>
@@ -67,7 +75,7 @@ export function ImpactPage() {
             ))}
           </Card>
           <div className="stack">
-            <Card title="Not affected">
+            <Card title="Not Affected">
               {ex.data.unaffected.length ? (
                 <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>
                   {ex.data.unaffected.map((u) => (
@@ -76,7 +84,7 @@ export function ImpactPage() {
                 </ul>
               ) : <p className="small muted">Every model in this graph is on the change path.</p>}
             </Card>
-            <Callout tone="neutral" title="How this is derived.">
+            <Callout tone="neutral" title="How This Is Derived.">
               A model is on the path only if its declared input binding passes a changed field. A result is attributed to it only if the two runs' recorded values actually differ.
             </Callout>
           </div>

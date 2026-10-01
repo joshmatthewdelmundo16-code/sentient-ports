@@ -1,0 +1,8 @@
+# Dagster workspace for the platform's optional code location (D28).
+# Run from platform/:   dagster dev -w dagster_platform/workspace.yaml
+# (working_directory is resolved against the directory dagster is launched from.)
+load_from:
+  - python_module:
+      module_name: dagster_platform.definitions
+      location_name: dagster_platform
+      working_directory: .
