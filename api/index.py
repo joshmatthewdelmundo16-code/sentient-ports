@@ -55,7 +55,22 @@ class _LazyApp:
                 await send({"type": "http.response.body", "body": body})
             return
 
-        await self._app(scope, receive, send)
+        # TEMP DIAGNOSTIC — remove after confirming path forwarding works.
+        import json as _json
+        _body = _json.dumps({
+            "scope_path": scope.get("path"),
+            "import_ok": self._app is not None,
+            "import_error": self._import_error,
+        }).encode()
+        await send({"type": "http.response.start", "status": 200, "headers": [
+            [b"content-type", b"application/json"],
+            [b"content-length", str(len(_body)).encode()],
+        ]})
+        await send({"type": "http.response.body", "body": _body})
+        return
+        # END DIAGNOSTIC
+
+        await self._app(scope, receive, send)  # noqa: unreachable
 
 
 app = _LazyApp()

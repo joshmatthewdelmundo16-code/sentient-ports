@@ -1,11 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "buildCommand": "cd frontend && npm install && npx vite build --outDir ../public/app",
-  "outputDirectory": "public",
+  "buildCommand": "cd frontend && npm install && npx vite build",
+  "functions": {
+    "api/index.py": {
+      "includeFiles": "frontend/dist/**"
+    }
+  },
   "rewrites": [
-    { "source": "/app", "destination": "/app/index.html" },
-    { "source": "/app/(.*)", "destination": "/app/index.html" },
     { "source": "/(.*)", "destination": "/api/index" }
   ],
   "env": {
