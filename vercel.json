@@ -12,8 +12,8 @@
   ],
   "env": {
     "ENVIRONMENT": "production",
-    "AUTO_CREATE_SCHEMA": "false",
-    "DEMO_SEED_ENABLED": "false",
+    "AUTO_CREATE_SCHEMA": "true",
+    "DEMO_SEED_ENABLED": "true",
     "SESSION_COOKIE_SECURE": "true",
     "HSTS_ENABLED": "true",
     "PRIMARY_UI": "react",
